@@ -1,0 +1,8 @@
+[submodule "data-agent"]
+	path = data-agent
+	url = https://github.com/823338779/data-agent.git
+	branch = develop
+[submodule "metric-platform"]
+	path = metric-platform
+	url = https://github.com/823338779/metric_platform.git
+	branch = develop
