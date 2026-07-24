@@ -1,0 +1,24 @@
+version: "3.9"
+
+# Deploy this first. It is an intentionally local, HTTP-only registry for a private LAN.
+# All swarm nodes must trust LOCAL_REGISTRY as an insecure registry before pulling application images.
+services:
+  registry:
+    image: registry:2
+    ports:
+      - target: 5000
+        published: 5000
+        protocol: tcp
+        mode: ingress
+    volumes:
+      - registry-data:/var/lib/registry
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.data-agent.stateful == true
+      restart_policy:
+        condition: any
+
+volumes:
+  registry-data:

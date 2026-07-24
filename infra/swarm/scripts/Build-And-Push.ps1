@@ -1,0 +1,22 @@
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [string]$LocalRegistry,
+    [string]$ImageTag = 'dev'
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
+
+function Build-And-Push([string]$Name, [string]$Dockerfile) {
+    $image = "$LocalRegistry/$Name`:$ImageTag"
+    docker build --file (Join-Path $repoRoot $Dockerfile) --tag $image $repoRoot
+    if ($LASTEXITCODE -ne 0) { throw "Image build failed: $image" }
+    docker push $image
+    if ($LASTEXITCODE -ne 0) { throw "Image push failed: $image" }
+}
+
+Build-And-Push 'data-agent-api' 'infra\swarm\docker\data-agent-api.Dockerfile'
+Build-And-Push 'metric-platform-api' 'infra\swarm\docker\metric-platform-api.Dockerfile'
+Build-And-Push 'data-agent-web' 'infra\swarm\docker\data-agent-web.Dockerfile'
+Build-And-Push 'metric-platform-web' 'infra\swarm\docker\metric-platform-web.Dockerfile'
