@@ -1,58 +1,49 @@
-# Agent Workspace Root
+# Agent Workspace Instructions
 
-This repository is the orchestration root for two independent projects. Treat
-`data-agent/` and `metric-platform/` as Git submodules: make code changes in
-the owning submodule and commit them there before updating the root gitlink.
+This repository orchestrates two independent Git submodules. Keep product ownership, repository history, and build boundaries explicit.
 
-## Repository routing
+## Work routing
 
-| Path | Responsibility | Route work here when it concerns |
+| Scope | Owning path | Includes |
 | --- | --- | --- |
-| `data-agent/` | Conversational data-agent product | Agent sessions and execution, backend services, frontend UI, authentication and tenancy, SQL analysis, data-source connections, and Agent-specific evaluation. |
-| `metric-platform/` | Governed metric and semantic layer | Data sources, datasets, fields, dimensions, metrics, dataset relationships, semantic SQL compilation, metric queries, and the metric-management console. |
-| Root (`pom.xml`, `.gitmodules`, `docs/`, `tmp/`) | Workspace integration | Submodule versions, cross-repository build orchestration, architecture and operational material that applies to both projects. |
+| Data Agent | `data-agent/` | Agent sessions and execution, API and UI, authentication and tenancy, scheduling, connectors, SQL analysis, and Agent-specific evaluation. |
+| Metric Platform | `metric-platform/` | Data sources, datasets, fields, dimensions, metrics, relationships, semantic SQL and queries, OpenAPI, and the management console. |
+| Workspace integration | Root | Submodule revisions, aggregate builds, shared local infrastructure, deployment assets, and cross-product documentation. |
 
-## Cross-repository changes
+Do not place product code in the root repository. When a Data Agent requirement needs a Metric Platform capability, make the API-compatible change in `metric-platform/` and consume it from `data-agent/`; never import implementation classes across submodules.
 
-- Keep ownership explicit. Change only the repository that owns the behavior.
-- When Agent requirements require a Metric Platform capability, make the
-  compatible Metric Platform change in `metric-platform/` and update the
-  root's submodule reference after its commit is available.
-- Do not make product-code changes directly in the root repository.
+## Submodule workflow
 
-## Non-code artifacts
+- Make and verify product changes inside the owning submodule.
+- Commit the product repository before updating its root Git link.
+- Update the root Git link only when the workspace intentionally pins the new revision.
+- Keep the root `pom.xml` an integration concern. It must not become a parent POM or create a Maven parent-child relationship between the products.
+- The current root reactor contains duplicate Data Agent coordinates and is not a valid verification entry point. Verify each submodule independently until that layout is corrected.
+- The root `.gitmodules` hides submodule changes by default. Use `git status --ignore-submodules=none` or `git diff --ignore-submodules=none` when reviewing them.
 
-Codex-generated material that is not product code must be stored at the root,
-never inside either submodule unless it is a source-controlled document that
-belongs to that product.
+## Implementation rules
 
-- Put durable documentation, plans, migration notes, and reports in `docs/`.
-- Put disposable scratch files, command output, and generated temporary files
-  in `tmp/`.
-- Use a descriptive subdirectory when the material belongs to a particular
-  task, for example `docs/submodule-migration/` or `tmp/build-diagnostics/`.
-- Do not place temporary files in project source directories or repository
-  roots.
+- Preserve existing architecture and choose the smallest change that satisfies the request.
+- Add sufficient comments for new or non-obvious behavior, invariants, security boundaries, and operational constraints. Do not comment self-evident code.
+- Do not add, delete, or modify test-related code unless the user explicitly requests it. Repository migration may update filesystem paths in harness scripts but must not change assertions or expected behavior.
+- Keep public Metric Platform behavior aligned with `metric-platform/api/openapi.yaml`.
+- Never commit real credentials, tokens, connection strings, enterprise data, or generated secrets.
 
-# Workspace Projects
+## Documentation and generated material
 
-Do not add, delete, or modify test-related code unless the user explicitly requests it. Repository-migration work may update filesystem paths in existing harness scripts, but must not change assertions or expected behavior.
+- Put durable cross-product architecture, operational guidance, migration notes, and reports in `docs/`.
+- Keep product-specific documentation in its owning submodule.
+- Put disposable output and diagnostics in `tmp/`, under a descriptive task directory.
+- Keep shared IntelliJ IDEA run configurations in `.run/`.
+- Do not place temporary or generated material in product source directories.
 
-This workspace contains two projects:
+## Verification
 
-增量的代码和功能要写好充足的注释;
+Run the narrowest relevant verification in the changed repository first. The supported backend package checks are:
 
-在迭代data-agent工程中可以要求metric-platform服务做改造来适配data-agent的需求。
+```powershell
+.\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B -DskipTests package
+mvn -f .\metric-platform\pom.xml -B -DskipTests package
+```
 
-## Data Agent
-
-Data Agent is the main project in this repository. Its backend is located in `backend/` and its frontend is located in `frontend/`.
-
-It provides the conversational data agent, including agent sessions and execution, authentication and tenant management, SQL analysis, data-source connections, and the primary user interface.
-
-## Metric Platform
-
-Metric Platform is an independent project registered as the `metric-platform/` Git submodule.
-
-It manages governed data sources, datasets, fields, dimensions, metrics, dataset relationships, semantic SQL compilation, metric queries, and the Metric Platform management console.
-
+Before reporting completion, inspect the root and affected submodule statuses separately so unrelated user changes are not included.
