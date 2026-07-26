@@ -1,81 +1,148 @@
-# Agent Workspace
+# Agent 工作区
 
-`agent-root` is the integration workspace for two independently versioned products:
+`agent-root` 是两个独立版本化产品的集成工作区：
 
-| Project | Responsibility |
+| 项目 | 职责 |
 | --- | --- |
-| [Data Agent](data-agent/) | Conversational data analysis, agent sessions and execution, authentication and tenancy, data-source connections, scheduling, and the primary user interface. |
-| [Metric Platform](metric-platform/) | Governed data sources, datasets, fields, dimensions, metrics, relationships, semantic SQL compilation, metric queries, and the metric-management console. |
+| [Data Agent](data-agent/) | 对话式数据分析、Agent 会话与执行、身份认证与租户、数据源连接、调度，以及主要用户界面。 |
+| [Metric Platform](metric-platform/) | 受治理的数据源、数据集、字段、维度、指标、关系、语义 SQL 编译、指标查询，以及指标管理控制台。 |
 
-Both projects are Git submodules with independent builds and release lifecycles. The root POM must not become the parent of either product.
+两个项目均为 Git 子模块，拥有独立的构建与发布生命周期。根目录 POM 不得成为任一产品的父 POM。
 
-## Workspace layout
+## 工作区结构
 
-| Path | Purpose |
+| 路径 | 用途 |
 | --- | --- |
-| `data-agent/` | Data Agent product repository. |
-| `metric-platform/` | Metric Platform product repository and published OpenAPI contract. |
-| `.run/` | Shared IntelliJ IDEA launch configurations for both backends. |
-| `infra/docker/` | Shared image definitions and reverse-proxy configuration. |
-| `infra/compose/` | Local dependency-only and complete multi-service Docker Compose deployment. |
-| `infra/data-agent/` | Data Agent migration and database fixtures. |
-| `infra/swarm/` | Docker Swarm packaging and deployment assets. |
-| `docs/codex/` | Codex discussions, research, reviews, and implementation notes. |
-| `docs/` | Other durable cross-product architecture, operations, and migration documents. |
-| `tmp/` | Disposable diagnostics and generated scratch material. |
+| `data-agent/` | Data Agent 产品仓库。 |
+| `metric-platform/` | Metric Platform 产品仓库及其对外发布的 OpenAPI 契约。 |
+| `.run/` | 两个后端共用的 IntelliJ IDEA 启动配置。 |
+| `infra/docker/` | 共用镜像定义和反向代理配置。 |
+| `infra/compose/` | 仅本地依赖及完整多服务 Docker Compose 部署。 |
+| `infra/data-agent/` | Data Agent 迁移与数据库固件。 |
+| `infra/swarm/` | Docker Swarm 打包和部署资源。 |
+| `docs/codex/` | Codex 讨论、调研、评审和实现记录。 |
+| `docs/` | 其他长期维护的跨产品架构、运维和迁移文档。 |
+| `tmp/` | 可随时丢弃的诊断和临时生成文件。 |
 
-## Prerequisites
+## 环境要求
 
-- Git with submodule support
-- JDK 21 and Maven
-- Node.js and npm
+- 支持子模块的 Git
+- JDK 21 和 Maven
+- Node.js 和 npm
 - Docker Desktop
-- Ollama with `qwen3.5:9b` when running Data Agent conversations locally
+- 本地运行 Data Agent 对话时，需要 Ollama 及 `qwen3.5:9b` 模型
 
-## Get started
+## 组件访问信息
 
-Clone the workspace and initialize the submodules:
+下表中的账号和密码是仓库内置的**本地开发默认值**，以明文列出便于本地联调。它们不适用于生产环境，也不要在这里记录生产账号、令牌或连接串。完整 Compose 栈可通过 `infra/compose/.env` 覆盖这些默认值。
+
+### 完整 Compose 栈
+
+| 组件 | 宿主机访问地址 | 容器内访问地址 | 账号 | 密码 | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| Data Agent Web/API | `http://localhost:8080` | `http://data-agent-api:8080` | `admin` | `admin` | Web 入口通过 `/api` 将请求反向代理到内部 API；容器内健康检查地址为 `http://data-agent-api:8080/actuator/health`。 |
+| Metric Platform Web/API | `http://localhost:8090` | `http://metric-platform-api:8090` | `admin` | `admin` | Web 入口通过 `/api` 将请求反向代理到内部 API；容器内健康检查地址为 `http://metric-platform-api:8090/actuator/health`。 |
+| PostgreSQL（Data Agent 数据库） | `jdbc:postgresql://localhost:5432/data_agent` | `jdbc:postgresql://postgres:5432/data_agent` | `data_agent` | `data_agent_local_dev` | 数据库名：`data_agent`。 |
+| PostgreSQL（Metric Platform 数据库） | `jdbc:postgresql://localhost:5432/metric_platform` | `jdbc:postgresql://postgres:5432/metric_platform` | `data_agent` | `data_agent_local_dev` | 数据库名：`metric_platform`。 |
+| Redis | `localhost:6379` | `redis:6379` | `default` | `redis_local_dev` | 用于身份令牌状态和完整栈中的集群事件。 |
+| Ollama | `http://localhost:11434` | `http://host.docker.internal:11434` | 无 | 无 | 默认模型为 `qwen3.5:9b`；Ollama 运行在宿主机，不由 Compose 创建。 |
+
+Compose 默认值及对应覆盖项：
+
+| 用途 | 默认值 | `infra/compose/.env` 配置项 |
+| --- | --- | --- |
+| PostgreSQL 密码 | `data_agent_local_dev` | `POSTGRES_PASSWORD` |
+| Redis 密码 | `redis_local_dev` | `REDIS_PASSWORD` |
+| Data Agent 登录密码 | `admin` | `DATA_AGENT_ADMIN_PASSWORD` |
+| Metric Platform 登录密码 | `admin` | `METRIC_PLATFORM_ADMIN_PASSWORD` |
+| Ollama 地址 | `http://host.docker.internal:11434` | `OLLAMA_BASE_URL` |
+| Data Agent 对外端口 | `8080` | `DATA_AGENT_PORT` |
+| Metric Platform 对外端口 | `8090` | `METRIC_PLATFORM_PORT` |
+
+PostgreSQL 的完整本地默认访问信息：
+
+```text
+主机：localhost
+端口：5432
+账号：data_agent
+密码：data_agent_local_dev
+Data Agent 数据库：data_agent
+Metric Platform 数据库：metric_platform
+Data Agent JDBC：jdbc:postgresql://localhost:5432/data_agent
+Metric Platform JDBC：jdbc:postgresql://localhost:5432/metric_platform
+```
+
+可直接使用以下命令连接：
+
+```powershell
+$env:PGPASSWORD = 'data_agent_local_dev'
+psql -h localhost -p 5432 -U data_agent -d data_agent
+psql -h localhost -p 5432 -U data_agent -d metric_platform
+```
+
+### 宿主机开发模式
+
+| 组件 | 默认访问地址 | 账号 | 密码 | 补充说明 |
+| --- | --- | --- | --- | --- |
+| Data Agent 后端 | `http://localhost:8080` | `admin` | `admin` | 使用 `local` Profile；连接本机 PostgreSQL、Metric Platform 和 Ollama。 |
+| Data Agent 前端 | `http://127.0.0.1:5173` | `admin` | `admin` | Vite 将 `/api` 代理到 `http://127.0.0.1:8080`。 |
+| Metric Platform 后端 | `http://localhost:8090` | `admin` | `admin` | 连接本机 PostgreSQL 和 Redis。 |
+| Metric Platform 前端 | `http://localhost:5173` | `admin` | `admin` | Vite 将 `/api` 代理到 `http://localhost:8090`。 |
+
+两个 Vite 前端默认都尝试使用端口 `5173`。同时启动时，后启动的实例会自动选择下一个可用端口，终端会显示最终地址。
+
+## 快速开始
+
+克隆工作区并初始化子模块：
 
 ```powershell
 git clone --recurse-submodules https://github.com/823338779/agent-root.git
 Set-Location agent-root
 ```
 
-For an existing checkout:
+对于已有的工作区：
 
 ```powershell
 git submodule update --init --recursive
 ```
 
-Start the local PostgreSQL and Redis dependencies. This Compose project creates both the `data_agent` and `metric_platform` databases with settings that match the applications' default local configuration:
+启动本地 PostgreSQL 和 Redis 依赖。此 Compose 项目会创建 `data_agent` 和 `metric_platform` 数据库，配置与应用的本地默认值一致：
 
 ```powershell
 docker compose -f .\infra\compose\compose.yml up -d
 ```
 
-To build and start the complete containerized stack instead:
+如需构建并启动完整容器化栈：
 
 ```powershell
 docker compose -f .\infra\compose\compose.yml --profile full up -d --build
 ```
 
-See [the Compose deployment guide](infra/compose/README.md) for endpoints and environment overrides.
+如需覆盖默认值，先将 `infra/compose/.env.example` 复制为 `infra/compose/.env` 并修改，然后执行：
 
-Build the backend reactors independently:
+```powershell
+docker compose --env-file .\infra\compose\.env `
+  -f .\infra\compose\compose.yml `
+  --profile full up -d --build
+```
+
+更多端点和环境变量说明见 [Compose 部署指南](infra/compose/README.md)。
+
+分别构建两个后端：
 
 ```powershell
 .\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B -DskipTests package
 mvn -f .\metric-platform\pom.xml -B -DskipTests package
 ```
 
-There is intentionally no root Maven reactor. The products have independent dependency graphs and must be built from their own repositories.
+根目录刻意不提供 Maven 聚合构建。两个产品拥有独立的依赖图，必须在各自仓库中构建。
 
-Open the root directory in IntelliJ IDEA and use the launch configurations in [`.run/`](.run/):
+在 IntelliJ IDEA 中打开根目录，并使用 [`.run/`](.run/) 中的启动配置：
 
-- `MetricPlatformApplication` starts Metric Platform on port `8090`.
-- `DataAgentApplication` starts Data Agent with the `local` profile on port `8080`.
+- `MetricPlatformApplication`：在端口 `8090` 启动 Metric Platform。
+- `DataAgentApplication`：使用 `local` Profile 在端口 `8080` 启动 Data Agent。
 
-Start the frontends in separate terminals:
+在不同终端中启动前端：
 
 ```powershell
 Set-Location data-agent\frontend
@@ -89,28 +156,28 @@ npm ci
 npm run dev
 ```
 
-The Vite development servers proxy `/api` requests to their corresponding backend.
+Vite 开发服务器会将 `/api` 请求代理到各自对应的后端。
 
-## Work in the owning repository
+## 在归属仓库中工作
 
-Product code belongs in the submodule that owns the behavior. When Data Agent needs a new semantic-layer capability, implement and publish the compatible Metric Platform API first, then update the Data Agent integration.
+产品代码必须放在拥有对应能力的子模块中。当 Data Agent 需要新的语义层能力时，应先在 Metric Platform 中实现并发布兼容 API，再更新 Data Agent 集成。
 
-Commit product changes inside the owning submodule. Update and commit the root Git link only when the workspace should pin that submodule revision.
+先在归属子模块内提交产品变更。仅当工作区需要固定新的子模块版本时，才更新并提交根仓库中的 Git 链接。
 
-The root repository defaults to hiding submodule worktree changes. Inspect them explicitly when needed:
+根仓库默认隐藏子模块工作区的变更。需要时请显式检查：
 
 ```powershell
 git status --ignore-submodules=none
 git diff --ignore-submodules=none
 ```
 
-## Infrastructure and fixture documentation
+## 基础设施和固件文档
 
-- [Docker Compose deployment](infra/compose/README.md)
-- [Docker Swarm deployment](infra/swarm/README.md)
-- [Data Agent control-plane fixture](infra/data-agent/postgres-control-plane-fixture/README.md)
-- [Data Agent legacy-session migration fixture](infra/data-agent/postgres-session-migration-fixture/README.md)
-- [Codex working-document policy](docs/codex/README.md)
-- [CodeGraph workspace index](docs/codex/codegraph.md)
+- [Docker Compose 部署](infra/compose/README.md)
+- [Docker Swarm 部署](infra/swarm/README.md)
+- [Data Agent 控制平面固件](infra/data-agent/postgres-control-plane-fixture/README.md)
+- [Data Agent 旧会话迁移固件](infra/data-agent/postgres-session-migration-fixture/README.md)
+- [Codex 工作文档规范](docs/codex/README.md)
+- [CodeGraph 工作区索引](docs/codex/codegraph.md)
 
-Read the relevant fixture documentation before running any reset, reconciliation, or destructive migration verification.
+执行任何重置、对账或破坏性迁移验证之前，请先阅读相关固件文档。

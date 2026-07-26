@@ -201,6 +201,7 @@ conversationAssertions:
 - 配置有效的 Metric Platform admin 评测账号。
 - 为本次运行生成非空且唯一的资源前缀。
 - 成功获取运行前资源快照。
+- Data Agent 通过已认证的只读状态接口确认 evaluation mutation guard 已启用，且要求的 session tag 前缀与本次运行一致。
 
 缺少任何条件时默认拒绝 mutation。
 
@@ -426,10 +427,13 @@ Judge 高分不能覆盖 hard failure。
 Live evaluation 使用以下配置：
 
 - `AGENT_EVAL_BASE_URL`：Data Agent HTTP 地址。
+- `AGENT_EVAL_USERNAME`、`AGENT_EVAL_PASSWORD`：用于模拟真实用户登录 Data Agent 的评测账号。
+- `AGENT_EVAL_METRIC_IDENTITY_ID`：绑定到新建 Agent session 的 admin Metric Identity。
 - `METRIC_PLATFORM_BASE_URL`：Metric Platform 地址。
 - `METRIC_EVAL_USERNAME`、`METRIC_EVAL_PASSWORD`：admin 评测账号。
 - `EVAL_STARROCKS_JDBC_URL`、`EVAL_STARROCKS_USERNAME`、`EVAL_STARROCKS_PASSWORD`：评测数据源连接。
 - `EVAL_STARROCKS_CATALOG`、`EVAL_STARROCKS_SCHEMA`：物理元数据范围。
+- `EVAL_STARROCKS_FACT_TABLE`、`EVAL_STARROCKS_DIMENSION_TABLE`：允许场景读取和建模的固定测试表。
 - Suite 中声明允许使用的测试表及预期业务结果。
 - `JUDGE_BASE_URL`、`JUDGE_API_KEY`、`JUDGE_MODEL`：Judge 配置。
 
