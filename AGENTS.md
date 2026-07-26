@@ -17,8 +17,7 @@ Do not place product code in the root repository. When a Data Agent requirement 
 - Make and verify product changes inside the owning submodule.
 - Commit the product repository before updating its root Git link.
 - Update the root Git link only when the workspace intentionally pins the new revision.
-- Keep the root `pom.xml` an integration concern. It must not become a parent POM or create a Maven parent-child relationship between the products.
-- The current root reactor contains duplicate Data Agent coordinates and is not a valid verification entry point. Verify each submodule independently until that layout is corrected.
+- Do not add a root Maven reactor or parent POM. The two products have independent build graphs and must be verified separately.
 - The root `.gitmodules` hides submodule changes by default. Use `git status --ignore-submodules=none` or `git diff --ignore-submodules=none` when reviewing them.
 
 ## Implementation rules
@@ -32,6 +31,7 @@ Do not place product code in the root repository. When a Data Agent requirement 
 ## Documentation and generated material
 
 - Put durable cross-product architecture, operational guidance, migration notes, and reports in `docs/`.
+- Put all Codex discussion records, implementation notes, research summaries, and review reports in `docs/codex/`; do not keep them in either product submodule.
 - Keep product-specific documentation in its owning submodule.
 - Put disposable output and diagnostics in `tmp/`, under a descriptive task directory.
 - Keep shared IntelliJ IDEA run configurations in `.run/`.

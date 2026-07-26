@@ -8,8 +8,7 @@ This directory packages Data Agent, Metric Platform, both frontends, PostgreSQL,
 | --- | --- |
 | `stack.yml` | Application and stateful-service stack. |
 | `registry-stack.yml` | Local image registry. |
-| `docker/` | Backend and frontend image definitions. |
-| `nginx/` | Frontend reverse-proxy configuration. |
+| `../docker/` | Image definitions and frontend reverse-proxy configuration shared with Docker Compose. |
 | `scripts/` | Swarm initialization, secret creation, image publishing, and deployment. |
 | `.env.example` | Registry address and image-tag example. |
 

@@ -22,7 +22,7 @@ This warning prevents the documentation from presenting the old `E:\IdeaProjects
 Start the fixed local PostgreSQL container from the workspace root:
 
 ```powershell
-docker compose -f .\infra\compose\data-agent.yml up -d postgres
+docker compose -f .\infra\compose\compose.yml up -d postgres
 ```
 
 After Flyway has already created the complete schema in `data_agent_test`, load and verify the fixture:

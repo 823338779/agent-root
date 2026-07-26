@@ -1,0 +1,147 @@
+name: agent-platform
+
+services:
+  postgres:
+    image: postgres:16.9-alpine
+    container_name: data-agent-postgres
+    environment:
+      POSTGRES_DB: data_agent
+      POSTGRES_USER: data_agent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U data_agent -d data_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  metric-platform-db-init:
+    image: postgres:16.9-alpine
+    container_name: metric-platform-db-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        psql -h postgres -U data_agent -d postgres -tAc
+        "SELECT 1 FROM pg_database WHERE datname='metric_platform'" | grep -q 1 ||
+        createdb -h postgres -U data_agent -O data_agent metric_platform
+    restart: "no"
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: data-agent-redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  metric-platform-api:
+    profiles: [full]
+    build:
+      context: ../..
+      dockerfile: infra/docker/metric-platform-api.Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: swarm
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/metric_platform
+      SPRING_DATASOURCE_USERNAME: data_agent
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_USERNAME: default
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
+      METRIC_PLATFORM_IDENTITY_AUTH_BOOTSTRAP_PASSWORD: ${METRIC_PLATFORM_ADMIN_PASSWORD:-admin}
+    depends_on:
+      metric-platform-db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8090/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  data-agent-api:
+    profiles: [full]
+    build:
+      context: ../..
+      dockerfile: infra/docker/data-agent-api.Dockerfile
+    environment:
+      SPRING_PROFILES_ACTIVE: swarm
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/data_agent
+      SPRING_DATASOURCE_USERNAME: data_agent
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_USERNAME: default
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
+      SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      DATA_AGENT_METRIC_PLATFORM_BASE_URL: http://metric-platform-api:8090
+      DATA_AGENT_SINGLE_ACCOUNT_PASSWORD: ${DATA_AGENT_ADMIN_PASSWORD:-admin}
+      DATA_AGENT_SECURITY_FORMAL_AUTHENTICATION_CONFIGURED: "true"
+      DATA_AGENT_SCHEDULER_NODE_ID: compose-data-agent
+      DATA_AGENT_SCHEDULER_INSTANCE_ADDRESS: data-agent-api:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      metric-platform-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+    restart: unless-stopped
+
+  metric-platform-web:
+    profiles: [full]
+    build:
+      context: ../..
+      dockerfile: infra/docker/metric-platform-web.Dockerfile
+    depends_on:
+      metric-platform-api:
+        condition: service_healthy
+    ports:
+      - "${METRIC_PLATFORM_PORT:-8090}:80"
+    restart: unless-stopped
+
+  data-agent-web:
+    profiles: [full]
+    build:
+      context: ../..
+      dockerfile: infra/docker/data-agent-web.Dockerfile
+    depends_on:
+      data-agent-api:
+        condition: service_healthy
+    ports:
+      - "${DATA_AGENT_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

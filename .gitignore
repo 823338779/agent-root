@@ -1,4 +1,7 @@
 .codegraph/
 .idea/
+.env
+*.mv.db
+**/__pycache__/
 tmp/*
 !tmp/.gitkeep

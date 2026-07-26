@@ -1,6 +1,6 @@
 FROM maven:3.9.11-eclipse-temurin-21 AS build
 WORKDIR /workspace
-COPY backend /workspace/backend
+COPY data-agent/backend /workspace/backend
 RUN mvn -f /workspace/backend/pom.xml -pl agent-api -am -DskipTests package
 
 FROM eclipse-temurin:21-jre
