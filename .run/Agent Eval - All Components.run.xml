@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Agent Eval - All Components" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.datagent.evals.AgentEvalsApplication" />
+    <module name="agent-evals" />
+    <option name="PROGRAM_PARAMETERS" value="components --model qwen3.5:9b --judge-model qwen3.5:9b --repeat 1 --output tmp/component-evals/idea-all-components" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/data-agent" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

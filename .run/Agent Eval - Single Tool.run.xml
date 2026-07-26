@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Agent Eval - Single Tool" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.datagent.evals.AgentEvalsApplication" />
+    <module name="agent-evals" />
+    <option name="PROGRAM_PARAMETERS" value="components --kind tool --name metric_query_execute --model qwen3.5:9b --judge-model qwen3.5:9b --repeat 3 --output tmp/component-evals/idea-single-tool" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/data-agent" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
