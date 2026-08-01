@@ -128,7 +128,7 @@ docker compose --env-file .\infra\compose\.env `
 
 更多端点和环境变量说明见 [Compose 部署指南](infra/compose/README.md)。
 
-分别构建两个后端：
+分别快速打包两个后端（以下命令会跳过测试）：
 
 ```powershell
 .\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B -DskipTests package
@@ -158,11 +158,31 @@ npm run dev
 
 Vite 开发服务器会将 `/api` 请求代理到各自对应的后端。
 
+## 验证
+
+从工作区根目录执行完整后端验证：
+
+```powershell
+.\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B verify
+mvn -f .\metric-platform\pom.xml -B verify
+```
+
+执行前端测试和生产构建：
+
+```powershell
+npm --prefix .\data-agent\frontend test
+npm --prefix .\data-agent\frontend run build
+npm --prefix .\metric-platform\frontend test
+npm --prefix .\metric-platform\frontend run build
+```
+
+开发时先执行受影响模块的最小测试，只在变更跨越模块或产品边界时扩大到上述完整验证。
+
 ## 在归属仓库中工作
 
 产品代码必须放在拥有对应能力的子模块中。当 Data Agent 需要新的语义层能力时，应先在 Metric Platform 中实现并发布兼容 API，再更新 Data Agent 集成。
 
-先在归属子模块内提交产品变更。仅当工作区需要固定新的子模块版本时，才更新并提交根仓库中的 Git 链接。
+仅当任务需要固定新的子模块版本时，才先在归属子模块内提交产品变更，再更新根仓库中的 Git 链接。未经明确要求，不要自行创建提交。
 
 根仓库默认隐藏子模块工作区的变更。需要时请显式检查：
 
