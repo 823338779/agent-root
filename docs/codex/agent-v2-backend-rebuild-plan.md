@@ -30,7 +30,7 @@
 - 把会话、运行、模型循环、工具执行和人工交互拆成清晰状态机。
 - 让 Metric Platform 保持唯一的语义与数据治理边界，V2 只通过公开 HTTP API 集成。
 - 保留租户隔离、认证、密钥保护、审计、调度 fencing、产物加密等安全约束。
-- 让新增一个 Tool、Skill、交互类型或运行状态时，不需要跨多个 Maven 模块同步修改。
+- 让新增一个 Tool、Skill、交互类型或运行状态时，只修改所属业务模块及确有数据结构变化时的 `agent-persistence`，不波及无关模块。
 - 使故障可以通过 `sessionId`、`runId`、`toolCallId` 和 `requestId` 串联定位。
 
 ### 2.2 非目标
@@ -49,7 +49,7 @@
 | V1 模块 | 当前职责 | V2 处理方式 |
 | --- | --- | --- |
 | `agent-core` | 会话、Run、上下文、证据、模型和工具抽象 | 拆入 `conversation`、`runtime`、`context`、`evidence` 能力包 |
-| `agent-dao` | MyBatis 实体、Mapper、持久化服务 | 各能力包拥有自己的 persistence 子包 |
+| `agent-dao` | MyBatis 实体、Mapper、持久化服务 | 收敛到独立 `agent-persistence`，并按业务能力建立子包 |
 | `agent-connectors` | Metric Platform HTTP 客户端 | 收敛为 `metric.infrastructure` 下的网关实现 |
 | `agent-capabilities` | Skill 资源、Tool 描述与风险 | 收敛为 `capability` 能力包 |
 | `agent-scheduler` | 分布式调度、租约、执行 | 收敛为 `scheduler` 能力包，保持独立状态机 |
@@ -141,23 +141,16 @@ data-agent-v2/
     pom.xml
     mvnw.cmd
     .mvn/
+    agent-contracts/     # REST/SSE 公开契约模型
+    agent-platform/      # 时钟、ID、租户和操作者上下文等无存储基础能力
+    agent-persistence/   # 全部 Entity、Mapper、ServiceImpl、MyBatis-Plus 配置和 Flyway 迁移
+    agent-auth/          # 认证 API、安全过滤器和认证用例编排
+    agent-conversation/  # 会话、消息、Run、SSE 与 Ollama 用例编排
     agent-server/
       src/main/java/com/datagent/agentv2/
         AgentV2Application.java
-        shared/
-        identity/
-        conversation/
-        runtime/
-        context/
-        capability/
-        metric/
-        interaction/
-        artifact/
-        scheduler/
-        observability/
       src/main/resources/
         application.yml
-        db/migration/
         agent-skills/
     agent-evals/
   frontend/
@@ -172,24 +165,24 @@ data-agent-v2/
   README.md
 ```
 
-每个业务能力包内部按需要使用以下层次，不强制为空包占位：
+业务模块内部按需要使用以下层次，不强制为空包占位：
 
 ```text
 <capability>/
   api/             # Controller、公开 DTO、错误映射
   application/     # 用例、事务边界、跨领域编排
   domain/          # 状态机、实体、值对象、领域规则
-  infrastructure/  # DB、HTTP、Redis、模型供应商实现
+  infrastructure/  # HTTP、Redis、模型供应商等非数据库适配器
 ```
 
 依赖规则：
 
 1. `api` 只调用 `application`。
-2. `application` 编排领域对象和端口，不直接拼 SQL 或 HTTP。
+2. `application` 编排领域对象和 `agent-persistence` 提供的持久化服务，不直接依赖 Mapper、拼 SQL 或 HTTP。
 3. `domain` 不依赖 Spring、MyBatis、HTTP DTO 或模型供应商类型。
-4. `infrastructure` 实现本能力包声明的端口。
-5. 能力包之间只通过 application facade 或明确事件交互，不访问对方 Mapper。
-6. 只有 `AgentV2Application` 和配置类负责最终依赖装配。
+4. `agent-persistence` 按业务能力建立 `persistence.auth`、`persistence.conversation` 等子包，集中持有 Entity、Mapper 和基于 MyBatis-Plus `ServiceImpl` 的持久化服务；业务模块不得声明 Mapper 或直接使用 MyBatis API。
+5. 业务能力包之间只通过 application facade 或明确事件交互。
+6. `agent-server` 是唯一可部署组合根，只有 `AgentV2Application` 和配置类负责最终依赖装配。
 
 ## 6. 核心运行模型
 
@@ -336,8 +329,8 @@ V2 不应新建 V1 早期的 Agent 自有数据源、数据源版本或数据源
 
 工作项：
 
-1. 使用远程仓库 `https://github.com/823338779/data-agent-v2.git` 创建根工作区第三个 submodule，默认分支为 `develop`；建立 `backend/agent-server`、`backend/agent-evals`、`frontend` 和 `contracts`。
-2. 后端配置 Java 21、Spring Boot 4.1.0、Maven Wrapper、Spotless、配置分层和独立构建命令；`agent-server` 是唯一可部署服务，`agent-evals` 只建立独立可编译骨架。
+1. 使用远程仓库 `https://github.com/823338779/data-agent-v2.git` 创建根工作区第三个 submodule，默认分支为 `develop`；建立后端七模块、`frontend` 和 `contracts`。
+2. 后端配置 Java 21、Spring Boot 4.1.0、Maven Wrapper、Spotless、配置分层和独立构建命令；`agent-server` 是唯一可部署服务，`agent-evals` 只建立独立可编译骨架，`agent-persistence` 独占全部数据库持久化实现。
 3. 从 V1 当前 `develop` 文件快照迁移前端的登录、退出、认证恢复、会话列表、创建会话、聊天消息、运行状态和 SSE 投影；暂不迁移 Metric Identity、Metric 管理、Artifact、审批交互和定时任务页面。
 4. 接入 PostgreSQL、Flyway、MyBatis-Plus、Actuator 和必需的单机 Redis。服务按多实例设计，前端和 API 统一通过 Nginx；不引入服务发现或粘性会话。
 5. 实现最小认证：tenant、user account、tenant membership、login session、BCrypt、HttpOnly Cookie，以及本地 `admin/admin` 初始化；更完整的租户控制面和授权在阶段 2 扩展。
