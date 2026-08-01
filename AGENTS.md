@@ -1,43 +1,40 @@
-# Agent Workspace Instructions
+# Agent 工作区规则
 
-This repository orchestrates two independently versioned product submodules. Keep ownership, repository history, and build boundaries explicit.
+本仓库用于编排两个独立版本化的产品子仓库。必须明确区分能力归属、仓库历史和构建边界。
 
-## Scope and ownership
+## 作用域与能力归属
 
-- This file governs workspace-wide routing, cross-repository boundaries, shared infrastructure, and root-repository changes.
-- `data-agent/` owns Agent sessions and execution, its API and UI, authentication and tenancy, scheduling, connectors, SQL analysis, and Agent-specific evaluation.
-- `metric-platform/` owns data sources, datasets, fields, dimensions, metrics, relationships, semantic SQL and queries, its OpenAPI contract, and its management console.
-- The root owns submodule revisions, shared local infrastructure, deployment assets, aggregate verification scripts, and cross-product documentation. Do not place product code here.
-- Inside a submodule, also follow its nearest `AGENTS.md`; product-specific rules there take precedence on the same topic.
+- 本文件约束工作区级别的任务路由、跨仓库边界、共享基础设施和根仓库变更。
+- `data-agent/` 负责 Agent 会话与执行、API 与 UI、身份认证与租户隔离、任务调度、连接器、SQL 分析和 Agent 专属评估。
+- `metric-platform/` 负责数据源、数据集、字段、维度、指标、关系、语义 SQL 与查询、OpenAPI 契约和管理控制台。
+- 根仓库仅负责子模块版本、共享本地基础设施、部署资产、聚合验证脚本和跨产品文档。不得在根仓库放置产品代码。
+- 在子仓库中工作时，还必须遵守路径最近的 `AGENTS.md`；同一事项存在不同规则时，以更具体的产品规则为准。
 
-## Cross-repository workflow
+## 跨仓库工作流
 
-- Keep changes in the narrowest owning repository; a cross-product request does not authorize unrelated changes in both submodules.
-- When Data Agent needs a Metric Platform capability, implement an API-compatible change in `metric-platform/` and consume the published HTTP API from `data-agent/`. Never import implementation classes across submodules.
-- Keep both products independently buildable. Do not add a root Maven reactor or parent POM.
-- Do not create commits unless the user asks. If the task includes pinning a new submodule revision, commit the product repository first and update the root Git link only when the workspace intentionally adopts that revision.
-- Root `.gitmodules` hides submodule changes by default. Review with `git status --ignore-submodules=none` and `git diff --ignore-submodules=none`.
+- 变更必须放在职责范围最窄的归属仓库中；跨产品需求不代表可以修改两个子仓库中与需求无关的内容。
+- Data Agent 需要 Metric Platform 能力时，应在 `metric-platform/` 中实现兼容的 API，再由 `data-agent/` 通过已发布的 HTTP API 调用。严禁跨子仓库导入实现类。
+- 两个产品必须保持独立构建。不得添加根目录 Maven reactor 或父 POM。
+- 未经用户明确要求，不得创建提交。如果任务包含固定新的子模块版本，应先提交产品仓库变更；仅当工作区确定采用该版本时，才更新根仓库中的 Git 链接。
+- 根目录 `.gitmodules` 默认隐藏子模块变更。审查时使用 `git status --ignore-submodules=none` 和 `git diff --ignore-submodules=none`。
 
-## Change rules
+## 变更规则
 
-- Preserve existing architecture and make the smallest change that satisfies the request.
-- Do not delete, weaken, or rewrite tests merely to make a change pass. Bug fixes and new behavior may add the smallest relevant regression tests; broad test-suite changes require explicit user approval.
-- Keep public Metric Platform behavior aligned with `metric-platform/api/openapi.yaml`.
-- Never commit real credentials, tokens, connection strings, enterprise data, or generated secrets.
-- Prefer existing dependencies and conventions. Add a dependency only in the owning submodule when it materially reduces complexity or boilerplate, has no simpler local alternative, and has acceptable maintenance, license, security, footprint, and compatibility characteristics.
-- Use design patterns only when they reduce current complexity, match the existing architecture, or address a concrete variation point. Do not add abstractions for hypothetical needs.
+- 保持现有架构，并选择满足需求的最小变更。
+- 不得为了让变更通过而删除、弱化或改写测试。修复缺陷或新增行为时，可以添加最小范围的回归测试；大范围调整测试体系必须获得用户明确授权。
+- Metric Platform 的公开行为必须与 `metric-platform/api/openapi.yaml` 保持一致。
+- 严禁提交真实凭据、令牌、连接字符串、企业数据或生成的密钥。
+- 优先使用现有依赖和项目惯例。仅当新依赖能显著降低复杂度或模板代码、没有更简单的本地实现，并且其维护状态、许可证、安全风险、体积和兼容性均可接受时，才可将其引入归属子仓库。
+- 仅当设计模式能降低当前复杂度、符合现有架构或解决明确的变化点时才使用。不得为假设性的未来需求增加抽象层。
 
-## Artifact placement
+## 产物存放
 
-- Put durable cross-product documentation in `docs/`, and product-specific documentation in its owning submodule.
-- Create records under `docs/codex/` only when the user requests a durable record or the result will remain materially useful; do not generate routine task notes.
-- Put disposable diagnostics in `tmp/`, shared IntelliJ run configurations in `.run/`, and no temporary or generated material in product source directories.
+- 长期维护的跨产品文档放入 `docs/`，产品专属文档放入对应子仓库。
+- 仅当用户要求保留记录，或结果具有长期复用价值时，才在 `docs/codex/` 下创建记录；不得默认生成常规任务过程文档。
+- 一次性诊断文件放入 `tmp/`，共享 IntelliJ IDEA 运行配置放入 `.run/`；不得在产品源码目录中放置临时或生成文件。
 
-## Verification
+## 验证
 
-- Use the supported commands documented in `README.md` and the owning submodule README; keep command documentation there rather than duplicating it here.
-- Run the narrowest relevant test first, then broader build verification when the change or risk crosses module boundaries.
-- Before reporting completion, inspect the root and every affected submodule separately so unrelated user changes are not included.
-
-## 重要
-- 任何时候都不用脱敏
+- 使用 `README.md` 和归属子仓库 README 中记录的受支持命令；构建命令只在这些文档中维护，不要在本文件重复记录。
+- 先运行与变更最相关的最小测试；当变更或风险跨越模块边界时，再执行更广泛的构建验证。
+- 报告完成前，必须分别检查根仓库和每个受影响子仓库，避免包含用户的无关变更。
