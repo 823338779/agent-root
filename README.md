@@ -1,19 +1,21 @@
 # Agent 工作区
 
-`agent-root` 是两个独立版本化产品的集成工作区：
+`agent-root` 是三个独立版本化产品的集成工作区：
 
 | 项目 | 职责 |
 | --- | --- |
 | [Data Agent](data-agent/) | 对话式数据分析、Agent 会话与执行、身份认证与租户、数据源连接、调度，以及主要用户界面。 |
+| [Data Agent V2](data-agent-v2/) | 重建后的 Data Agent 产品及其契约；本次工作中的 `data-agent/` 仅供参考。 |
 | [Metric Platform](metric-platform/) | 受治理的数据源、数据集、字段、维度、指标、关系、语义 SQL 编译、指标查询，以及指标管理控制台。 |
 
-两个项目均为 Git 子模块，拥有独立的构建与发布生命周期。根目录 POM 不得成为任一产品的父 POM。
+三个项目均为 Git 子模块，拥有独立的构建与发布生命周期。根目录 POM 不得成为任一产品的父 POM。
 
 ## 工作区结构
 
 | 路径 | 用途 |
 | --- | --- |
 | `data-agent/` | Data Agent 产品仓库。 |
+| `data-agent-v2/` | 重建后的 Data Agent 产品仓库及其契约；本次工作中的 `data-agent/` 仅供参考。 |
 | `metric-platform/` | Metric Platform 产品仓库及其对外发布的 OpenAPI 契约。 |
 | `.run/` | 两个后端共用的 IntelliJ IDEA 启动配置。 |
 | `infra/docker/` | 共用镜像定义和反向代理配置。 |
@@ -164,6 +166,7 @@ Vite 开发服务器会将 `/api` 请求代理到各自对应的后端。
 
 ```powershell
 .\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B verify
+.\data-agent-v2\backend\mvnw.cmd -f .\data-agent-v2\backend\pom.xml -B verify
 mvn -f .\metric-platform\pom.xml -B verify
 ```
 

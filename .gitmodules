@@ -8,3 +8,8 @@
 	url = https://github.com/823338779/metric_platform.git
 	branch = develop
 	ignore = all
+[submodule "data-agent-v2"]
+	path = data-agent-v2
+	url = https://github.com/823338779/data-agent-v2.git
+	branch = develop
+	ignore = all
