@@ -305,7 +305,7 @@ V2 不应新建 V1 早期的 Agent 自有数据源、数据源版本或数据源
 - Artifact 元数据与加密 payload 分表，下载令牌短时有效且不可复用。
 - 调度租约更新必须包含 owner、lease version/fencing token 条件。
 
-持久化层强制使用 MyBatis-Plus。普通业务持久化服务继承 `ServiceImpl<Mapper, Entity>`，业务代码不直接注入 Mapper；使用 `MetaObjectHandler`、`@TableLogic`、`@Version`、`TenantLineInnerInterceptor`、`OptimisticLockerInnerInterceptor`、Chain Wrapper 和 `ServiceImpl` CRUD。Mapper 只继承 `BaseMapper`，仅当 MyBatis-Plus 无法表达且经过正确性验证时增加定制方法。Outbox 发布和超时 Run 清理等跨租户系统扫描必须把 `@InterceptorIgnore(tenantLine = "true")` 限制在单个内部方法，不允许全局绕过租户拦截器。
+持久化层强制使用 MyBatis-Plus。普通业务持久化服务继承 `ServiceImpl<Mapper, Entity>`，业务代码不直接注入 Mapper；使用 `MetaObjectHandler`、`@TableLogic`、`@Version`、`TenantLineInnerInterceptor`、`OptimisticLockerInnerInterceptor`、Chain Wrapper 和 `ServiceImpl` CRUD。Mapper 只继承 `BaseMapper`，仅当 MyBatis-Plus 无法表达且经过正确性验证时增加定制方法。Outbox 发布和超时 Run 清理等跨租户系统扫描必须使用 `InterceptorIgnoreHelper.execute(...)` 在线程作用域内仅跳过该次 tenant-line 处理并自动恢复，不允许全局绕过租户拦截器。
 
 ## 8. 分阶段实施顺序
 
