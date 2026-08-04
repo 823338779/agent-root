@@ -1,7 +1,7 @@
 [feishu]
-app_id = "<app-id>"
-app_secret = "<app-secret>"
-allowed_open_ids = ["<open-id>"]
+app_id = "xxx"
+app_secret = "xxxx"
+allowed_open_ids = ["ou_7eb6b0c9b8a78aad723f94fd4b5bb716"]
 
 [codex]
 workspace = "E:/IdeaProjects/agent-root"
