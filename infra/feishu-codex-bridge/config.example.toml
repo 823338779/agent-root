@@ -1,0 +1,17 @@
+[feishu]
+app_id = "<app-id>"
+app_secret = "<app-secret>"
+allowed_open_ids = ["<open-id>"]
+
+[codex]
+workspace = "E:/IdeaProjects/agent-root"
+model = ""
+sandbox = "full-access"
+approval_mode = "deny_all"
+
+[bridge]
+max_workers = 4
+max_prompt_length = 20000
+max_reply_length = 4000
+processed_message_cache_size = 2000
+

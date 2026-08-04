@@ -1,0 +1,1 @@
+.\.venv\Scripts\python.exe -m feishu_codex_bridge.main
