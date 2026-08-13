@@ -1,0 +1,527 @@
+[
+  {
+    "category": "00-总览与治理",
+    "heading": "00-Nova Agent 平台复刻文档索引",
+    "sourcePath": "data-agent-v2\\7968141436\\7940564010\\00-Nova Agent 平台复刻文档索引.md",
+    "destinationPath": "00-总览与治理\\00-Nova Agent 平台复刻文档索引.md",
+    "nodeId": "0eMKjyp813ajZ2nmIe0ylqQoVxAZB1Gv"
+  },
+  {
+    "category": "00-总览与治理",
+    "heading": "01-三仓证据等级与冲突处理规范",
+    "sourcePath": "data-agent-v2\\7968141436\\8020019197\\01-三仓证据等级与冲突处理规范.md",
+    "destinationPath": "00-总览与治理\\01-三仓证据等级与冲突处理规范.md",
+    "nodeId": "wva2dxOW4YrXn70RHkwPg6E9Vbkz3BRL"
+  },
+  {
+    "category": "00-总览与治理",
+    "heading": "03-三仓覆盖矩阵与文档状态",
+    "sourcePath": "data-agent-v2\\7968141436\\7968073564\\03-三仓覆盖矩阵与文档状态.md",
+    "destinationPath": "00-总览与治理\\03-三仓覆盖矩阵与文档状态.md",
+    "nodeId": "7dx2rn0JbYXL1yeOHZpPMkLKVMGjLRb3"
+  },
+  {
+    "category": "00-总览与治理",
+    "heading": "标题：能力或技术主题",
+    "sourcePath": "data-agent-v2\\7968141436\\7988402185\\02-单模块自包含复刻文档模板.md",
+    "destinationPath": "00-总览与治理\\标题：能力或技术主题.md",
+    "nodeId": "9bN7RYPWdM2L1w4rIKO14wrOVZd1wyK0"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "插件加载、生命周期与资源释放复刻文档",
+    "sourcePath": "data-agent-v2\\8020123085\\8020959075\\3.md",
+    "destinationPath": "01-核心运行时\\插件加载、生命周期与资源释放复刻文档.md",
+    "nodeId": "1DKw2zgV2PmNaZ1nsvlelnd78B5r9YAn"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "多代理调度、运行上下文派生与隔离边界",
+    "sourcePath": "data-agent-v2\\8020123085\\7989410064\\6.md",
+    "destinationPath": "01-核心运行时\\多代理调度、运行上下文派生与隔离边界.md",
+    "nodeId": "wva2dxOW4YrXn70RHY3x3aOoVbkz3BRL"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "Agent Runtime、LLM/Tool Loop 与执行控制复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7969189013\\4.md",
+    "destinationPath": "01-核心运行时\\Agent Runtime、LLM_Tool Loop 与执行控制复刻设计.md",
+    "nodeId": "pGBa2Lm8aGkL6YrxhzXG7dv9VgN7R35y"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "LLM 路由、模型角色与 Provider 装配复刻文档",
+    "sourcePath": "data-agent-v2\\8020123085\\7941336440\\7.md",
+    "destinationPath": "01-核心运行时\\LLM 路由、模型角色与 Provider 装配复刻文档.md",
+    "nodeId": "QBnd5ExVEvNOAkKes6r9PAyZJyeZqMmz"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "Nova 总体架构、部署单元与请求链路",
+    "sourcePath": "data-agent-v2\\8020123085\\7967981912\\1.md",
+    "destinationPath": "01-核心运行时\\Nova 总体架构、部署单元与请求链路.md",
+    "nodeId": "0eMKjyp813ajZ2nmIe0yL1avVxAZB1Gv"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "NovaCore SPI 稳定契约复刻文档",
+    "sourcePath": "data-agent-v2\\8020123085\\7968937593\\2.md",
+    "destinationPath": "01-核心运行时\\NovaCore SPI 稳定契约复刻文档.md",
+    "nodeId": "l6Pm2Db8D4r7EjOGfLlbkely8xLq0Ee4"
+  },
+  {
+    "category": "01-核心运行时",
+    "heading": "REST、SSE 与 WebSocket 实时事件协议复刻规格",
+    "sourcePath": "data-agent-v2\\8020123085\\7968521987\\5.md",
+    "destinationPath": "01-核心运行时\\REST、SSE 与 WebSocket 实时事件协议复刻规格.md",
+    "nodeId": "np9zOoBVBYg7l95EHeDbKwx4W1DK0g6l"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "登录、会话、RBAC、租户和用户隔离复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7940488361\\30-登录、会话、RBAC、租户和用户隔离复刻说明.md",
+    "destinationPath": "02-平台服务\\登录、会话、RBAC、租户和用户隔离复刻说明.md",
+    "nodeId": "pYLaezmVNen91PQMFPnvbLp9WrMqPxX6"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "调度、异步执行与补偿：可复刻技术设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7989286784\\17.md",
+    "destinationPath": "02-平台服务\\调度、异步执行与补偿：可复刻技术设计.md",
+    "nodeId": "b9Y4gmKWrPOMgz09sewY6kGjJGXn6lpz"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "定时任务、执行历史、失败与重试能力复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7968069592\\21-定时任务、执行历史、失败与重试能力复刻说明.md",
+    "destinationPath": "02-平台服务\\定时任务、执行历史、失败与重试能力复刻说明.md",
+    "nodeId": "DnRL6jAJMGmv1xeghqndKajxWyMoPYe1"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "工具目录、工具开关和运行时可用性",
+    "sourcePath": "data-agent-v2\\7968325006\\7967917901\\17-工具目录、工具开关和运行时可用性.md",
+    "destinationPath": "02-平台服务\\工具目录、工具开关和运行时可用性.md",
+    "nodeId": "DnRL6jAJMGmv1xeghqndZp1wWyMoPYe1"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "工具组、Agent 工具策略与继承治理",
+    "sourcePath": "data-agent-v2\\7968325006\\7988110968\\18-工具组、Agent 工具策略与继承治理.md",
+    "destinationPath": "02-平台服务\\工具组、Agent 工具策略与继承治理.md",
+    "nodeId": "QPGYqjpJYr4o1MGncBPqdyw18akx1Z5N"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "会话工作区、文件管理和沙箱操作复刻文档",
+    "sourcePath": "data-agent-v2\\7968325006\\7968217419\\22-会话工作区、文件管理和沙箱操作复刻文档.md",
+    "destinationPath": "02-平台服务\\会话工作区、文件管理和沙箱操作复刻文档.md",
+    "nodeId": "9E05BDRVQ20M1EYkcDzn5p01J63zgkYA"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "幂等、并发、超时、重试与恢复：横切一致性复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7941148868\\21.md",
+    "destinationPath": "02-平台服务\\幂等、并发、超时、重试与恢复：横切一致性复刻设计.md",
+    "nodeId": "P0MALyR8klRr1L2GTDgvxMLrW3bzYmDO"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "模型供应商、角色路由与访问控制",
+    "sourcePath": "data-agent-v2\\7968325006\\7988510070\\31-模型供应商、角色路由与访问控制.md",
+    "destinationPath": "02-平台服务\\模型供应商、角色路由与访问控制.md",
+    "nodeId": "14dA3GK8gjaL1ADlun3wL2ReJ9ekBD76"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "内容摄取、知识索引与检索：可复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7989198493\\13.md",
+    "destinationPath": "02-平台服务\\内容摄取、知识索引与检索：可复刻设计.md",
+    "nodeId": "yQod3RxJKGZK1bA9hlA35lgmJkb4Mw9r"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "平台设置、主题品牌、国际化与无障碍复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7968225421\\32-平台设置、主题品牌、国际化与无障碍复刻说明.md",
+    "destinationPath": "02-平台服务\\平台设置、主题品牌、国际化与无障碍复刻说明.md",
+    "nodeId": "OG9lyrgJPzRg1l6Ncv5jo4RbWzN67Mw4"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "提示词、上下文组装、压缩与 Token 预算：可复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\8020703763\\11.md",
+    "destinationPath": "02-平台服务\\提示词、上下文组装、压缩与 Token 预算：可复刻设计.md",
+    "nodeId": "NkDwLng8ZLv01Nj7S3GBKaLMVKMEvZBY"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "项目工作空间与场景资源挂载复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\8019659670\\14-项目工作空间与场景资源挂载复刻说明.md",
+    "destinationPath": "02-平台服务\\项目工作空间与场景资源挂载复刻说明.md",
+    "nodeId": "dxXB52LJqnxgDpdvfKgPq9pX8qjMp697"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "用户记忆、画像、后台 Review Job 与 Insight Recall 复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7968257318\\16-用户记忆、画像、后台 Review Job 与 Insight Recall 复刻说明.md",
+    "destinationPath": "02-平台服务\\用户记忆、画像、后台 Review Job 与 Insight Recall 复刻说明.md",
+    "nodeId": "vNG4YZ7JnPYv4gdosNdMn4eRW2LD0oRE"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "长期记忆、画像注入与后台 Review：可复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\8020587664\\12.md",
+    "destinationPath": "02-平台服务\\长期记忆、画像注入与后台 Review：可复刻设计.md",
+    "nodeId": "pYLaezmVNen91PQMFKO20Q04WrMqPxX6"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "知识库创建、导入、检索与运行时召回：自包含复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7988478053\\15-知识库创建、导入、检索与运行时召回：自包含复刻说明.md",
+    "destinationPath": "02-平台服务\\知识库创建、导入、检索与运行时召回：自包含复刻说明.md",
+    "nodeId": "OG9lyrgJPzRg1l6Ncv5jLmNnWzN67Mw4"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "Artifact 创建、归档、预览与来源追踪复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7968249247\\23-Artifact 创建、归档、预览与来源追踪复刻说明.md",
+    "destinationPath": "02-平台服务\\Artifact 创建、归档、预览与来源追踪复刻说明.md",
+    "nodeId": "pYLaezmVNen91PQMFPnvkqYGWrMqPxX6"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "Citation、Evidence 绑定和来源展示复刻指南",
+    "sourcePath": "data-agent-v2\\7968325006\\7940436307\\25-Citation、Evidence 绑定和来源展示复刻指南.md",
+    "destinationPath": "02-平台服务\\Citation、Evidence 绑定和来源展示复刻指南.md",
+    "nodeId": "R4GpnMqJzGj9z5dphkera0kz8Ke0xjE3"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "MCP 服务配置、工具发现和运行时调用",
+    "sourcePath": "data-agent-v2\\7968325006\\7967929997\\20-MCP 服务配置、工具发现和运行时调用.md",
+    "destinationPath": "02-平台服务\\MCP 服务配置、工具发现和运行时调用.md",
+    "nodeId": "DnRL6jAJMGmv1xeghqndKGXqWyMoPYe1"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "Skill 上传、资源包、作用域、激活和执行",
+    "sourcePath": "data-agent-v2\\7968325006\\7940428553\\19-Skill 上传、资源包、作用域、激活和执行.md",
+    "destinationPath": "02-平台服务\\Skill 上传、资源包、作用域、激活和执行.md",
+    "nodeId": "dxXB52LJqnxgDpdvfKgPvMOp8qjMp697"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T08 工具注册、可见性、执行与结果保留：可复刻技术设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7989310487\\8.md",
+    "destinationPath": "02-平台服务\\T08 工具注册、可见性、执行与结果保留：可复刻技术设计.md",
+    "nodeId": "b9Y4gmKWrPOMgz09sewYYlgaJGXn6lpz"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T09 Skill 扫描、解析、激活与运行时：可复刻技术设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7969081645\\9.md",
+    "destinationPath": "02-平台服务\\T09 Skill 扫描、解析、激活与运行时：可复刻技术设计.md",
+    "nodeId": "mweZ92PV6M04RYqbIq0k1Am7WxEKBD6p"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T10 MCP 桥接、Transport、权限与同步：可复刻技术设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7941528011\\10.md",
+    "destinationPath": "02-平台服务\\T10 MCP 桥接、Transport、权限与同步：可复刻技术设计.md",
+    "nodeId": "LeBq413JAwDEq4nBIzPe59QmWDOnGvpb"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T14：Workspace、文件工具、Directory / Docker Sandbox 可复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\8020903459\\14.md",
+    "destinationPath": "02-平台服务\\T14：Workspace、文件工具、Directory _ Docker Sandbox 可复刻设计.md",
+    "nodeId": "Exel2BLV5zRK703rcpNK3DKBJgk9rpMq"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T15：产物、引用证据与来源追踪流水线复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\7989370138\\15.md",
+    "destinationPath": "02-平台服务\\T15：产物、引用证据与来源追踪流水线复刻说明.md",
+    "nodeId": "Amq4vjg8903DYwkyfx0qeLM0J3kdP0wQ"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T16：持久化、Flyway 与租户分区复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\7989438048\\16.md",
+    "destinationPath": "02-平台服务\\T16：持久化、Flyway 与租户分区复刻说明.md",
+    "nodeId": "ndMj49yWjX7L16pASb1EYyBRJ3pmz5aA"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T18：产品层与 NovaCore 桥接复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\7988802826\\18.md",
+    "destinationPath": "02-平台服务\\T18：产品层与 NovaCore 桥接复刻说明.md",
+    "nodeId": "DnRL6jAJMGmv1xegh9QxjzkeWyMoPYe1"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T20：身份、授权、Secret 与审计复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\8020667768\\20.md",
+    "destinationPath": "02-平台服务\\T20：身份、授权、Secret 与审计复刻说明.md",
+    "nodeId": "dxXB52LJqnxgDpdvfZD469mO8qjMp697"
+  },
+  {
+    "category": "02-平台服务",
+    "heading": "T22：错误契约、日志、诊断与可观测性复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\7989370162\\22.md",
+    "destinationPath": "02-平台服务\\T22：错误契约、日志、诊断与可观测性复刻说明.md",
+    "nodeId": "ndMj49yWjX7L16pASb1E5Mk3J3pmz5aA"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "01-AI 对话工作台与消息交互复刻设计",
+    "sourcePath": "data-agent-v2\\7968325006\\8019819660\\01-AI 对话工作台与消息交互复刻设计.md",
+    "destinationPath": "03-会话与交互\\01-AI 对话工作台与消息交互复刻设计.md",
+    "nodeId": "QPGYqjpJYr4o1MGncBPqXy9M8akx1Z5N"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "02-会话创建、历史、搜索、重命名与删除复刻设计",
+    "sourcePath": "data-agent-v2\\7968325006\\8019971368\\02-会话创建、历史、搜索、重命名与删除复刻设计.md",
+    "destinationPath": "03-会话与交互\\02-会话创建、历史、搜索、重命名与删除复刻设计.md",
+    "nodeId": "OG9lyrgJPzRg1l6Ncv5jKrPAWzN67Mw4"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "多代理委派、执行阶段和结果汇总",
+    "sourcePath": "data-agent-v2\\7968325006\\8019943471\\05-多代理委派、执行阶段和结果汇总.md",
+    "destinationPath": "03-会话与交互\\多代理委派、执行阶段和结果汇总.md",
+    "nodeId": "nYMoO1rWxag4pxdkhjXN3aXKV47Z3je9"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "附件、多模态输入与文件上下文：自包含复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7988346260\\06-附件、多模态输入与文件上下文：自包含复刻说明.md",
+    "destinationPath": "03-会话与交互\\附件、多模态输入与文件上下文：自包含复刻说明.md",
+    "nodeId": "7QG4Yx2JpLyD9kd4SQND7mKdJ9dEq3XD"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "会话分享、匿名访问、快照与撤销：自包含复刻指南",
+    "sourcePath": "data-agent-v2\\7968325006\\7968153621\\26-会话分享、匿名访问、快照与撤销：自包含复刻指南.md",
+    "destinationPath": "03-会话与交互\\会话分享、匿名访问、快照与撤销：自包含复刻指南.md",
+    "nodeId": "QPGYqjpJYr4o1MGncBPqBzDz8akx1Z5N"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "流式输出、停止、取消、恢复与断线重连复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\8019903454\\03-流式输出、停止、取消、恢复与断线重连复刻说明.md",
+    "destinationPath": "03-会话与交互\\流式输出、停止、取消、恢复与断线重连复刻说明.md",
+    "nodeId": "PwkYGxZV3ZnkrmN7S9ROLqoKWAgozOKL"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "消息复制、反馈、重新生成与推荐问题复刻设计",
+    "sourcePath": "data-agent-v2\\7968325006\\7968277117\\07-消息复制、反馈、重新生成与推荐问题复刻设计.md",
+    "destinationPath": "03-会话与交互\\消息复制、反馈、重新生成与推荐问题复刻设计.md",
+    "nodeId": "0eMKjyp813ajZ2nmIe0ywRgEVxAZB1Gv"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "Ask Human、确认、补充信息和人工介入复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7968089624\\04-Ask Human、确认、补充信息和人工介入复刻说明.md",
+    "destinationPath": "03-会话与交互\\Ask Human、确认、补充信息和人工介入复刻说明.md",
+    "nodeId": "Exel2BLV5zRK703rcPawr5YBJgk9rpMq"
+  },
+  {
+    "category": "03-会话与交互",
+    "heading": "Next.js 前端、状态流、流式会话与 Markdown 富渲染复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7968765633\\19.md",
+    "destinationPath": "03-会话与交互\\Next.js 前端、状态流、流式会话与 Markdown 富渲染复刻设计.md",
+    "nodeId": "R4GpnMqJzGj9z5dphLzwmXxe8Ke0xjE3"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "分析报告生成与解释能力复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\8019723947\\11-分析报告生成与解释能力复刻说明.md",
+    "destinationPath": "04-数据与分析\\分析报告生成与解释能力复刻说明.md",
+    "nodeId": "DnRL6jAJMGmv1xeghqndPAxBWyMoPYe1"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "归因分析及知识辅助：自包含复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\8019823805\\09-归因分析及知识辅助：自包含复刻说明.md",
+    "destinationPath": "04-数据与分析\\归因分析及知识辅助：自包含复刻说明.md",
+    "nodeId": "ndMj49yWjX7L16pASRNpPQZPJ3pmz5aA"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "数据源设置、连接校验与数据预览复刻规范",
+    "sourcePath": "data-agent-v2\\7968325006\\7940340513\\13-数据源设置、连接校验与数据预览复刻规范.md",
+    "destinationPath": "04-数据与分析\\数据源设置、连接校验与数据预览复刻规范.md",
+    "nodeId": "G53mjyd80pZMzXPaSwN3Xa6g86zbX04v"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "数据主题、指标目录和语义管理入口复刻文档",
+    "sourcePath": "data-agent-v2\\7968325006\\7968277135\\12-数据主题、指标目录和语义管理入口复刻文档.md",
+    "destinationPath": "04-数据与分析\\数据主题、指标目录和语义管理入口复刻文档.md",
+    "nodeId": "NDoBb60VLQa413eDfmEZYpKBJlemrZQ3"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "图表、分析报告和 PPT 生成能力复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7940512209\\24-图表、分析报告和 PPT 生成能力复刻说明.md",
+    "destinationPath": "04-数据与分析\\图表、分析报告和 PPT 生成能力复刻说明.md",
+    "nodeId": "X6GRezwJlA0K14keTgYlQwBl8dqbropQ"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "异常检测、预测推演和高级分析能力复刻说明",
+    "sourcePath": "data-agent-v2\\7968325006\\7988418148\\10-异常检测、预测推演和高级分析能力复刻说明.md",
+    "destinationPath": "04-数据与分析\\异常检测、预测推演和高级分析能力复刻说明.md",
+    "nodeId": "1zknDm0WRabj1GxXh0pwKa0g8BQEx5rG"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "运营分析、管理统计和导出",
+    "sourcePath": "data-agent-v2\\7968325006\\7967865756\\29-运营分析、管理统计和导出.md",
+    "destinationPath": "04-数据与分析\\运营分析、管理统计和导出.md",
+    "nodeId": "PwkYGxZV3ZnkrmN7S9ROrgKbWAgozOKL"
+  },
+  {
+    "category": "04-数据与分析",
+    "heading": "指标发现、维度解析与指标查询复刻文档",
+    "sourcePath": "data-agent-v2\\7968325006\\7967977523\\08-指标发现、维度解析与指标查询复刻文档.md",
+    "destinationPath": "04-数据与分析\\指标发现、维度解析与指标查询复刻文档.md",
+    "nodeId": "QPGYqjpJYr4o1MGncBPqGqPl8akx1Z5N"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "企业 IM Bot 与邮件对端契约复刻",
+    "sourcePath": "data-agent-v2\\8020123085\\7988986975\\26.md",
+    "destinationPath": "05-集成与对端\\企业 IM Bot 与邮件对端契约复刻.md",
+    "nodeId": "NDoBb60VLQa413eDfaAXgNKxJlemrZQ3"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "企业通信、机器人和邮件：自包含复刻设计",
+    "sourcePath": "data-agent-v2\\7968325006\\7967977602\\33-企业通信、机器人和邮件：自包含复刻设计.md",
+    "destinationPath": "05-集成与对端\\企业通信、机器人和邮件：自包含复刻设计.md",
+    "nodeId": "4lgGw3P8vR9XkbZjcg5LLwOM85daZ90D"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "嵌入式应用创建、密钥、启停和集成指南",
+    "sourcePath": "data-agent-v2\\7968325006\\7988230962\\27-嵌入式应用创建、密钥、启停和集成指南.md",
+    "destinationPath": "05-集成与对端\\嵌入式应用创建、密钥、启停和集成指南.md",
+    "nodeId": "R4GpnMqJzGj9z5dphkerkkgO8Ke0xjE3"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "CAN Gateway 与语义平台对端复刻说明",
+    "sourcePath": "data-agent-v2\\8020123085\\7941368526\\23.md",
+    "destinationPath": "05-集成与对端\\CAN Gateway 与语义平台对端复刻说明.md",
+    "nodeId": "y20BglGWO27D15Yjcvzx7K528A7depqY"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "OpenAI-compatible 与 Anthropic Provider 对端契约复刻",
+    "sourcePath": "data-agent-v2\\8020123085\\7989146611\\24.md",
+    "destinationPath": "05-集成与对端\\OpenAI-compatible 与 Anthropic Provider 对端契约复刻.md",
+    "nodeId": "1R7q3QmWeezL1qv5F62Ab7g4WxkXOEP2"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "T25：外部 MCP Server 兼容实现与生产参考设计",
+    "sourcePath": "data-agent-v2\\8020123085\\7941480630\\25.md",
+    "destinationPath": "05-集成与对端\\T25：外部 MCP Server 兼容实现与生产参考设计.md",
+    "nodeId": "4lgGw3P8vR9XkbZjcZ3w6Zkl85daZ90D"
+  },
+  {
+    "category": "05-集成与对端",
+    "heading": "T27：外部身份、数据源与内容服务对端复刻设计",
+    "sourcePath": "data-agent-v2\\8020123085\\8020883331\\27.md",
+    "destinationPath": "05-集成与对端\\T27：外部身份、数据源与内容服务对端复刻设计.md",
+    "nodeId": "b9Y4gmKWrPOMgz09sewYB06lJGXn6lpz"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "测试数据所有权、清理与残留审计复刻说明",
+    "sourcePath": "data-agent-v2\\7989438070\\7989238854\\9.md",
+    "destinationPath": "06-质量工程\\测试数据所有权、清理与残留审计复刻说明.md",
+    "nodeId": "yQod3RxJKGZK1bA9hlA3aB6dJkb4Mw9r"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "测试套件、已知失败与发布门禁复刻说明",
+    "sourcePath": "data-agent-v2\\7989438070\\7989262521\\11.md",
+    "destinationPath": "06-质量工程\\测试套件、已知失败与发布门禁复刻说明.md",
+    "nodeId": "ZQYprEoWon39vjdKfQaE1OEE81waOeDk"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "环境、账号与认证矩阵复刻",
+    "sourcePath": "data-agent-v2\\7989438070\\7989370190\\8.md",
+    "destinationPath": "06-质量工程\\环境、账号与认证矩阵复刻.md",
+    "nodeId": "NkDwLng8ZLv01Nj7S3GBgYDBVKMEvZBY"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "评测集、Golden Case 与效果评价",
+    "sourcePath": "data-agent-v2\\7968325006\\7968045940\\28-评测集、Golden Case 与效果评价.md",
+    "destinationPath": "06-质量工程\\评测集、Golden Case 与效果评价.md",
+    "nodeId": "DnRL6jAJMGmv1xeghqndAEPxWyMoPYe1"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "三仓测试策略与覆盖模型",
+    "sourcePath": "data-agent-v2\\7989438070\\7968885694\\1.md",
+    "destinationPath": "06-质量工程\\三仓测试策略与覆盖模型.md",
+    "nodeId": "DnRL6jAJMGmv1xegh9Qx7lBLWyMoPYe1"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "Browser 通道与跨通道用例复刻",
+    "sourcePath": "data-agent-v2\\7989438070\\7989206926\\5.md",
+    "destinationPath": "06-质量工程\\Browser 通道与跨通道用例复刻.md",
+    "nodeId": "4lgGw3P8vR9XkbZjcZ3wN7mP85daZ90D"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "Midscene 边界与自然语言 Flow 复刻",
+    "sourcePath": "data-agent-v2\\7989438070\\7969105219\\7.md",
+    "destinationPath": "06-质量工程\\Midscene 边界与自然语言 Flow 复刻.md",
+    "nodeId": "np9zOoBVBYg7l95EHeDbmr2rW1DK0g6l"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "Playwright 页面契约与确定性 UI 测试复刻说明",
+    "sourcePath": "data-agent-v2\\7989438070\\7941392734\\6.md",
+    "destinationPath": "06-质量工程\\Playwright 页面契约与确定性 UI 测试复刻说明.md",
+    "nodeId": "NkDwLng8ZLv01Nj7S3GBgBKwVKMEvZBY"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "REST API 黑盒 Runner 与断言体系",
+    "sourcePath": "data-agent-v2\\7989438070\\7968981578\\3.md",
+    "destinationPath": "06-质量工程\\REST API 黑盒 Runner 与断言体系.md",
+    "nodeId": "14dA3GK8gjaL1ADluEeXdB2oJ9ekBD76"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "Trace、截图、视频与 Secret-safe Evidence 复刻",
+    "sourcePath": "data-agent-v2\\7989438070\\8020887389\\10.md",
+    "destinationPath": "06-质量工程\\Trace、截图、视频与 Secret-safe Evidence 复刻.md",
+    "nodeId": "vNG4YZ7JnPYv4gdosA3je9akW2LD0oRE"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "WebSocket 客户端探针与协议验收复刻说明",
+    "sourcePath": "data-agent-v2\\7989438070\\7989386143\\4.md",
+    "destinationPath": "06-质量工程\\WebSocket 客户端探针与协议验收复刻说明.md",
+    "nodeId": "l6Pm2Db8D4r7EjOGfLl0wgbB8xLq0Ee4"
+  },
+  {
+    "category": "06-质量工程",
+    "heading": "YAML 用例 DSL、加载与状态治理复刻说明",
+    "sourcePath": "data-agent-v2\\7989438070\\7989234689\\2.md",
+    "destinationPath": "06-质量工程\\YAML 用例 DSL、加载与状态治理复刻说明.md",
+    "nodeId": "PwkYGxZV3ZnkrmN7SpnbX5ZyWAgozOKL"
+  }
+]
