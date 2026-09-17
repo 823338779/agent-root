@@ -108,9 +108,10 @@ Set-Location agent-root
 git submodule update --init --recursive
 ```
 
-启动本地 PostgreSQL 和 Redis 依赖。此 Compose 项目会创建 `data_agent` 和 `metric_platform` 数据库，配置与应用的本地默认值一致：
+首次运行先初始化 Git 服务的本机 SSH 身份，再统一启动 PostgreSQL、Redis 和 Git。此 Compose 项目会创建 `data_agent`、`data_agent_v2` 和 `metric_platform` 数据库：
 
 ```powershell
+.\infra\git\Initialize-GitService.ps1
 docker compose -f .\infra\compose\compose.yml up -d
 ```
 
@@ -129,6 +130,7 @@ docker compose --env-file .\infra\compose\.env `
 ```
 
 更多端点和环境变量说明见 [Compose 部署指南](infra/compose/README.md)。
+Git 默认只监听 `127.0.0.1:2222`，仓库和 SSH 主机密钥均使用持久卷；Agent V2 的连接配置见 [Git 服务部署](infra/git/README.md)。
 
 分别快速打包两个后端（以下命令会跳过测试）：
 

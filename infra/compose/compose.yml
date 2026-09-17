@@ -1,6 +1,25 @@
-name: agent-platform
+name: data-agent
 
 services:
+  # 所有 Agent 会话共享的固定指标仓库；只向本机开放 SSH，数据和主机密钥独立持久化。
+  git:
+    image: agent-platform-git:local
+    build:
+      context: ../git
+    container_name: git
+    ports:
+      - "127.0.0.1:${GIT_SSH_PORT:-2222}:22"
+    volumes:
+      - git-data:/srv/git
+      - git-host-keys:/var/lib/git-host-keys
+      - type: bind
+        source: ../../tmp/git-service/authorized_keys
+        target: /run/keys/authorized_keys
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+
   postgres:
     image: postgres:16.9-alpine
     container_name: data-agent-postgres
@@ -160,5 +179,13 @@ services:
     restart: unless-stopped
 
 volumes:
+  # 项目分组调整后继续使用原卷，避免切换到空仓库或更换 SSH 主机密钥。
+  # 由 Initialize-GitService.ps1 创建，生命周期独立于 Compose down --volumes。
+  git-data:
+    name: agent-platform_git-data
+    external: true
+  git-host-keys:
+    name: agent-platform_git-host-keys
+    external: true
   postgres-data:
   redis-data:

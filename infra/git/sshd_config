@@ -1,0 +1,16 @@
+Port 22
+HostKey /var/lib/git-host-keys/ssh_host_ed25519_key
+PidFile /run/sshd.pid
+AllowUsers git
+PubkeyAuthentication yes
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PermitRootLogin no
+AuthorizedKeysFile .ssh/authorized_keys
+StrictModes yes
+DisableForwarding yes
+PermitTTY no
+PermitUserRC no
+ForceCommand /usr/local/bin/git-command.sh
+LogLevel ERROR

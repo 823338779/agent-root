@@ -1,20 +1,23 @@
-# Docker Compose deployment
+# Docker Compose 部署
 
-The root Compose project is the supported local deployment entry point for the workspace. It owns the shared PostgreSQL and Redis services and can also build and run both APIs and both web applications.
+根仓库 Compose 是本地部署入口，统一管理 PostgreSQL、Redis 和 Git。`full` profile 还可构建运行旧版 Data Agent 与 Metric Platform 的 API 和前端；Agent V2 当前从宿主机启动。
 
-## Dependency-only development
+Docker Desktop 中统一显示在 `data-agent` 分组，Git 容器名为 `git`。
 
-Run infrastructure while starting Java and Vite from the host:
+## 只启动基础设施
+
+首次使用先初始化 Git 的本机 SSH 身份，再启动基础设施；Java 和 Vite 可继续从宿主机运行：
 
 ```powershell
+.\infra\git\Initialize-GitService.ps1
 docker compose -f .\infra\compose\compose.yml up -d
 ```
 
-This starts PostgreSQL, creates the `data_agent` and `metric_platform` databases, and starts Redis.
+这会启动 PostgreSQL，创建 `data_agent`、`data_agent_v2`、`metric_platform` 数据库，并启动 Redis 和 Git。Git 初始化脚本可重复运行，详细的 Agent 连接和数据持久化说明见 [Git 服务部署](../git/README.md)。
 
-## Complete local stack
+## 完整本地栈
 
-Optionally copy `infra/compose/.env.example` to `infra/compose/.env` and adjust local values. Then build and start all services:
+可将 `infra/compose/.env.example` 复制为 `infra/compose/.env` 并调整本地值，然后构建和启动服务：
 
 ```powershell
 docker compose --env-file .\infra\compose\.env `
@@ -22,21 +25,22 @@ docker compose --env-file .\infra\compose\.env `
   --profile full up -d --build
 ```
 
-If no `.env` file is supplied, Compose uses the development defaults declared in the file.
+未指定 `.env` 时使用 Compose 中声明的开发默认值。Git 首次启动前仍需完成上面的初始化。
 
-| Endpoint | Service |
+| 端点 | 服务 |
 | --- | --- |
 | `http://localhost:8080` | Data Agent web application and `/api` proxy |
 | `http://localhost:8090` | Metric Platform web application and `/api` proxy |
 | `localhost:5432` | Shared PostgreSQL |
 | `localhost:6379` | Shared Redis |
+| `127.0.0.1:2222` | Git SSH，固定仓库 `/srv/git/metrics.git` |
 
-Data Agent reaches Ollama through `host.docker.internal:11434` by default. Override `OLLAMA_BASE_URL` when Ollama runs elsewhere.
+容器化旧版 Data Agent 默认通过 `host.docker.internal:11434` 访问 Ollama，可用 `OLLAMA_BASE_URL` 覆盖。
 
-Stop the stack without deleting data:
+停止服务并保留数据：
 
 ```powershell
 docker compose -f .\infra\compose\compose.yml --profile full down
 ```
 
-Add `--volumes` only when the PostgreSQL and Redis data should be deliberately removed.
+只有明确要删除 PostgreSQL、Redis 数据时，才追加 `--volumes`。Git 仓库及 SSH 主机密钥使用外部卷，该命令不会删除它们。
