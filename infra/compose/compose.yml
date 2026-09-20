@@ -1,6 +1,27 @@
+# 沿用现有容器的 Compose 项目名，使本文件能够识别本机已运行的服务。
 name: data-agent
 
 services:
+  # 登记已有 StarRocks 服务，复用现有元数据和存储卷。
+  starrocks:
+    image: starrocks/allin1-ubuntu:3.5.19
+    container_name: data-agent-starrocks
+    restart: unless-stopped
+    ports:
+      # 仅供本机访问：FE HTTP、BE HTTP、MySQL 协议。
+      - "127.0.0.1:8030:8030"
+      - "127.0.0.1:8040:8040"
+      - "127.0.0.1:9030:9030"
+    volumes:
+      - starrocks-fe-meta:/data/deploy/starrocks/fe/meta
+      - starrocks-be-storage:/data/deploy/starrocks/be/storage
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h 127.0.0.1 -P 9030 -u root -e 'SELECT 1' > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      start_period: 30s
+      retries: 30
+
   # 所有 Agent 会话共享的固定指标仓库；只向本机开放 SSH，数据和主机密钥独立持久化。
   git:
     image: agent-platform-git:local
@@ -178,7 +199,21 @@ services:
       - "${DATA_AGENT_PORT:-8080}:80"
     restart: unless-stopped
 
+# 显式复用现有网络；外部资源不会随 docker compose down -v 删除。
+networks:
+  default:
+    external: true
+    name: data-agent_default
+
 volumes:
+  # 复用已有 StarRocks 数据卷，不创建新的空卷，也不重跑旧项目的数据初始化。
+  # 外部数据卷不会随 docker compose down -v 删除。
+  starrocks-fe-meta:
+    external: true
+    name: data-agent_starrocks-fe-meta
+  starrocks-be-storage:
+    external: true
+    name: data-agent_starrocks-be-storage
   # 项目分组调整后继续使用原卷，避免切换到空仓库或更换 SSH 主机密钥。
   # 由 Initialize-GitService.ps1 创建，生命周期独立于 Compose down --volumes。
   git-data:
