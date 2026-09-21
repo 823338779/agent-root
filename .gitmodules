@@ -13,3 +13,11 @@
 	url = https://github.com/823338779/data-agent-v2.git
 	branch = develop
 	ignore = all
+[submodule "dbt"]
+	path = dbt
+	url = https://github.com/dbt-labs/dbt.git
+	ignore = all
+[submodule "metricflow"]
+	path = metricflow
+	url = https://github.com/dbt-labs/metricflow.git
+	ignore = all
