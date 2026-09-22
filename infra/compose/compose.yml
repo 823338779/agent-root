@@ -3,6 +3,7 @@ name: data-agent
 
 services:
   # 登记已有 StarRocks 服务，复用现有元数据和存储卷。
+  # 本机访问账号：root；默认密码：空（无需密码）。
   starrocks:
     image: starrocks/allin1-ubuntu:3.5.19
     container_name: data-agent-starrocks
@@ -23,6 +24,8 @@ services:
       retries: 30
 
   # 所有 Agent 会话共享的 Forgejo；Web 与 SSH 仅向本机开放。
+  # Web 管理员账号：agent-admin；密码：admin。由 Initialize-GitService.ps1 初始化时输入，不写入 Compose。
+  # SSH Git 账号：git；认证方式：初始化脚本生成的专用 SSH Key，无密码登录。
   git:
     image: codeberg.org/forgejo/forgejo:15.0.9-rootless
     container_name: forgejo
@@ -54,6 +57,8 @@ services:
       retries: 24
     restart: unless-stopped
 
+  # PostgreSQL 账号：data_agent；密码：${POSTGRES_PASSWORD:-data_agent_local_dev}。
+  # 可访问数据库：data_agent、data_agent_v2、metric_platform。
   postgres:
     image: postgres:16.9-alpine
     container_name: data-agent-postgres
@@ -106,6 +111,7 @@ services:
         createdb -h postgres -U data_agent -O data_agent data_agent_v2
     restart: "no"
 
+  # Redis ACL 账号：default；密码：${REDIS_PASSWORD:-redis_local_dev}。
   redis:
     image: redis:7.4-alpine
     container_name: data-agent-redis
@@ -123,6 +129,8 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # Metric Platform Web 登录账号：admin；密码：${METRIC_PLATFORM_ADMIN_PASSWORD:-admin}。
+  # 其 PostgreSQL 与 Redis 凭据复用上方中间件账号。
   metric-platform-api:
     profiles: [full]
     build:
@@ -151,6 +159,8 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Data Agent Web 登录账号：admin；密码：${DATA_AGENT_ADMIN_PASSWORD:-admin}。
+  # 其 PostgreSQL 与 Redis 凭据复用上方中间件账号。
   data-agent-api:
     profiles: [full]
     build:
