@@ -108,7 +108,7 @@ Set-Location agent-root
 git submodule update --init --recursive
 ```
 
-首次运行先初始化 Git 服务的本机 SSH 身份，再统一启动 PostgreSQL、Redis 和 Git。此 Compose 项目会创建 `data_agent`、`data_agent_v2` 和 `metric_platform` 数据库：
+首次运行先初始化仅限本机访问的 Forgejo 服务和 SSH 身份，再统一启动 PostgreSQL、Redis 和 Git。初始化会交互读取管理员密码，并创建私有仓库 `agent-admin/metrics`；此 Compose 项目还会创建 `data_agent`、`data_agent_v2` 和 `metric_platform` 数据库：
 
 ```powershell
 .\infra\git\Initialize-GitService.ps1
@@ -130,7 +130,7 @@ docker compose --env-file .\infra\compose\.env `
 ```
 
 更多端点和环境变量说明见 [Compose 部署指南](infra/compose/README.md)。
-Git 默认只监听 `127.0.0.1:2222`，仓库和 SSH 主机密钥均使用持久卷；Agent V2 的连接配置见 [Git 服务部署](infra/git/README.md)。
+Forgejo Web 只监听 `http://127.0.0.1:3000`，SSH 默认只监听 `127.0.0.1:2222`，SQLite、仓库和 SSH 主机密钥使用外部持久卷；Agent V2 的连接配置见 [Forgejo Git 服务部署](infra/git/README.md)。
 
 分别快速打包两个后端（以下命令会跳过测试）：
 

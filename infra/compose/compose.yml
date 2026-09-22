@@ -22,23 +22,36 @@ services:
       start_period: 30s
       retries: 30
 
-  # 所有 Agent 会话共享的固定指标仓库；只向本机开放 SSH，数据和主机密钥独立持久化。
+  # 所有 Agent 会话共享的 Forgejo；Web 与 SSH 仅向本机开放。
   git:
-    image: agent-platform-git:local
-    build:
-      context: ../git
-    container_name: git
+    image: codeberg.org/forgejo/forgejo:15.0.9-rootless
+    container_name: forgejo
+    environment:
+      # 使用内置 SQLite，保持本地 Git 服务与产品 PostgreSQL 相互独立。
+      FORGEJO__database__DB_TYPE: sqlite3
+      # Web 与克隆地址固定指向本机，避免生成不可访问的容器内部地址。
+      FORGEJO__server__DOMAIN: 127.0.0.1
+      FORGEJO__server__ROOT_URL: http://127.0.0.1:3000/
+      FORGEJO__server__SSH_DOMAIN: 127.0.0.1
+      FORGEJO__server__SSH_PORT: ${GIT_SSH_PORT:-2222}
+      FORGEJO__server__SSH_LISTEN_PORT: 2222
+      FORGEJO__server__START_SSH_SERVER: "true"
+      # 本地实例由初始化脚本管理账户和私有仓库，不开放自助注册与安装页面。
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__repository__DEFAULT_BRANCH: main
+      FORGEJO__repository__FORCE_PRIVATE: "true"
+      FORGEJO__security__INSTALL_LOCK: "true"
     ports:
-      - "127.0.0.1:${GIT_SSH_PORT:-2222}:22"
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${GIT_SSH_PORT:-2222}:2222"
     volumes:
-      - git-data:/srv/git
-      - git-host-keys:/var/lib/git-host-keys
-      - type: bind
-        source: ../../tmp/git-service/authorized_keys
-        target: /run/keys/authorized_keys
-        read_only: true
-        bind:
-          create_host_path: false
+      - forgejo-data:/var/lib/gitea
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:3000/api/healthz"]
+      interval: 5s
+      timeout: 3s
+      start_period: 20s
+      retries: 24
     restart: unless-stopped
 
   postgres:
@@ -214,13 +227,9 @@ volumes:
   starrocks-be-storage:
     external: true
     name: data-agent_starrocks-be-storage
-  # 项目分组调整后继续使用原卷，避免切换到空仓库或更换 SSH 主机密钥。
   # 由 Initialize-GitService.ps1 创建，生命周期独立于 Compose down --volumes。
-  git-data:
-    name: agent-platform_git-data
-    external: true
-  git-host-keys:
-    name: agent-platform_git-host-keys
+  forgejo-data:
+    name: agent-platform_forgejo-data
     external: true
   postgres-data:
   redis-data:
