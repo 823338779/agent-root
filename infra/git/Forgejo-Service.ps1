@@ -65,6 +65,24 @@ function Ensure-ForgejoAdmin([string] $Container, [SecureString] $Password) {
     }
 }
 
+# 已有管理员必须先用本次输入的密码通过本机 API 验证，避免创建无法撤销的临时 Token。
+function Assert-ForgejoAdminCredential([string] $BaseUri) {
+    if (!$script:ForgejoAdminPassword) { throw '缺少 Forgejo 管理员密码' }
+    $credential = [PSCredential]::new($script:ForgejoAdminUsername, $script:ForgejoAdminPassword)
+    try {
+        $response = Invoke-WebRequest -Uri "$BaseUri$script:ForgejoApiPrefix/user" -Method GET `
+            -Authentication Basic -Credential $credential -AllowUnencryptedAuthentication `
+            -SkipHttpErrorCheck -TimeoutSec 5 -ErrorAction Stop
+    } catch {
+        throw "Forgejo 管理员凭据验证请求失败：$($_.Exception.Message)"
+    } finally {
+        $credential = $null
+    }
+    if ($response.StatusCode -ne 200) {
+        throw "Forgejo 管理员密码验证失败，状态码：$($response.StatusCode)"
+    }
+}
+
 # Token 仅通过函数返回给当前调用栈；随机后缀避免异常中断遗留的同名 Token 阻塞重试。
 function New-ForgejoAccessToken([string] $Container) {
     $script:ForgejoActiveTokenName = "$script:ForgejoTokenName-$([Guid]::NewGuid().ToString('N'))"

@@ -62,6 +62,11 @@ try {
     Wait-ForgejoHealthy $baseUri
 
     Ensure-ForgejoAdmin $container $adminPassword
+    $wrongPassword = ConvertTo-SecureString 'Forgejo-Wrong-Password-2026!' -AsPlainText -Force
+    Ensure-ForgejoAdmin $container $wrongPassword
+    Assert-Throws { Assert-ForgejoAdminCredential $baseUri } '管理员密码验证失败'
+    Ensure-ForgejoAdmin $container $adminPassword
+    Assert-ForgejoAdminCredential $baseUri
     $token = New-ForgejoAccessToken $container
     Ensure-ForgejoRepository $baseUri $token
 

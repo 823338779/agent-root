@@ -43,6 +43,7 @@ if (!$AdminPassword) {
     $AdminPassword = Read-Host '请输入 Forgejo 管理员 agent-admin 的密码' -AsSecureString
 }
 Ensure-ForgejoAdmin $container $AdminPassword
+Assert-ForgejoAdminCredential $baseUri
 $token = $null
 try {
     $token = New-ForgejoAccessToken $container
