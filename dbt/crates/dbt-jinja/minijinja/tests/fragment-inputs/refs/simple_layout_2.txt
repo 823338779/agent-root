@@ -1,3 +1,0 @@
-{% extends "simple_layout.txt" %}
-I shouldn't appear from here.
-{% block fragment %}({{ super() }}){% endblock %}

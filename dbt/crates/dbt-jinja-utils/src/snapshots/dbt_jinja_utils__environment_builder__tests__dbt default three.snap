@@ -1,6 +1,0 @@
----
-source: crates/dbt-jinja-utils/src/environment_builder.rs
-expression: "\"dbt default three\""
-snapshot_kind: text
----
-dbt default three

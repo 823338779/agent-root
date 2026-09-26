@@ -1,8 +1,0 @@
-version: 2
-
-seeds:
-  - name: stale_events
-    config:
-      column_types:
-        id: integer
-        loaded_at: timestamp

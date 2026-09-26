@@ -1,4 +1,0 @@
-{
-  "metrics": ["trailing_2_day_revenue"],
-  "group_by": ["TimeDimension('metric_time', 'day')"]
-}

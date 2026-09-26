@@ -1,2 +1,0 @@
-{% macro name(a, b) %}{{ a }} | {{ b }} | {{ caller(b) ||{% endmacro %}
-{% call(a) name(1, 2) %}...{{ a }}...{% endcall %}

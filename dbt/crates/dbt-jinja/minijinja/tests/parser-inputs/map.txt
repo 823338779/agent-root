@@ -1,6 +1,0 @@
-{{ {"foo": "bar"} }}
-
-{{ config(
-        tags=['elementary-tests'],
-        meta={"elementary": {"include": false}}
-    ) }}

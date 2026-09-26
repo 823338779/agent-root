@@ -1,5 +1,0 @@
-target
-.vscode/*.log
-profile.json
-**/snapshots/*.new
-**/*.pending-snap

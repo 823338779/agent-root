@@ -1,8 +1,0 @@
----
-source: minijinja/tests/test_lexer.rs
-description: Hello World!
-input_file: minijinja/tests/lexer-inputs/keep-trailing-newlines.txt
----
-TemplateData("Hello World!\n")
-  "Hello World!\n"
-

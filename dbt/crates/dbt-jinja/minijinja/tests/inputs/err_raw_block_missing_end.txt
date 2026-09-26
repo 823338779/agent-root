@@ -1,3 +1,0 @@
-{}
----
-{% raw %}this raw block is missing an end tag

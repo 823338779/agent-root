@@ -1,2 +1,0 @@
-{% macro name(a, b) %}{{ a }} | {{ b }}{% endmacro %}
-{{ name(1, 2) }}

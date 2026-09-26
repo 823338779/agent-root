@@ -1,5 +1,0 @@
-{}
----
-{% for foo.baz in [] %}
-  ...
-{% endfor %}

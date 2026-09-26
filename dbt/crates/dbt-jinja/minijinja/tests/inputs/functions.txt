@@ -1,5 +1,0 @@
-{}
----
-short-range: {{ range(10) }}
-range-is-iterable: {{ range(10) is iterable }}
-range-is-not-a-sequence: {{ range(10) is not sequence }}

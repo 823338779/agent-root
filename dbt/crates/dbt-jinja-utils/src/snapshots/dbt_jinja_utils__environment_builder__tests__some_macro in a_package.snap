@@ -1,6 +1,0 @@
----
-source: crates/dbt-jinja-utils/src/environment_builder.rs
-expression: "\"some_macro in a_package\""
-snapshot_kind: text
----
-some_macro in a_package

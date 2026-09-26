@@ -1,4 +1,0 @@
-{
-  "metrics": ["revenue"],
-  "group_by": ["TimeDimension('metric_time', 'day')"]
-}

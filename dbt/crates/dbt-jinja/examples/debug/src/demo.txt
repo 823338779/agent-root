@@ -1,5 +1,0 @@
-{%- with func=range %}
-  {%- for item in func(iterations) %}
-    {{- debug() -}}
-  {%- endfor %}
-{%- endwith %}

@@ -1,5 +1,0 @@
-{% test foo() %}...{% endtest %}
-{% test foo(a, b) %}...{% endtest %}
-{% test foo(a, b=42) %}...{% endtest %}
-{% test foo(a, b,) %}...{% endtest %}
-{% test foo(a, b=42,) %}...{% endtest %}

@@ -1,8 +1,0 @@
-{
-  "var": "foo"
-}
----
-{% extends "fragment_in_parent.txt" %}
-{% block other %}
-Shouldn't show up
-{% endblock %}

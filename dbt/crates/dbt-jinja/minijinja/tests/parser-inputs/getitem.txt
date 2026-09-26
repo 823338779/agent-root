@@ -1,4 +1,0 @@
-{{ foo["bar"][42] }}
-{{ validate[a,] }}
-{{ validate[a, b, c] }}
-{{ validate.any[a, b, c] }}

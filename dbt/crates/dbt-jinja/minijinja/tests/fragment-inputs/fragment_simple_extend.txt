@@ -1,9 +1,0 @@
-{
-  "var": "foo"
-}
----
-{% extends "simple_layout.txt" %}
-
-{% block fragment %}
-This should appear
-{% endblock %}
