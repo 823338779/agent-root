@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="MetricPlatformApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
-    <module name="backend" />
+    <module name="metric-app" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.metricplatform.MetricPlatformApplication" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
