@@ -5,10 +5,13 @@
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
-      <env name="DBT_PROFILES_DIR" value="$PROJECT_DIR$/data-agent-v2/examples/metricflow" />
-      <env name="Path" value="$PROJECT_DIR$/dbt-metricflow-service/.venv/Scripts;$Path$" />
-      <env name="PROJECTS_ROOT" value="$PROJECT_DIR$/data-agent-v2/examples" />
       <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="DBT_PROFILES_DIR" value="$PROJECT_DIR$/tmp/metric-debug/profiles" />
+      <env name="JOB_ARTIFACTS_ROOT" value="$PROJECT_DIR$/tmp/metric-debug/artifacts" />
+      <env name="PLATFORM_BINDINGS_FILE" value="$PROJECT_DIR$/tmp/metric-debug/bindings.json" />
+      <env name="PLATFORM_DB_PATH" value="$PROJECT_DIR$/tmp/metric-debug/jobs.sqlite" />
+      <env name="Path" value="E:/IdeaProjects/agent-root/dbt-metricflow-service/.venv/Scripts;$Path$" />
+      <env name="PROJECTS_ROOT" value="$PROJECT_DIR$/tmp/metric-debug/projects" />
       <env name="VIRTUAL_ENV" value="$PROJECT_DIR$/dbt-metricflow-service/.venv" />
     </envs>
     <option name="SDK_HOME" value="" />
@@ -17,6 +20,17 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="DEBUG_JUST_MY_CODE" value="false" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <EXTENSION ID="net.ashald.envfile">
+      <option name="IS_ENABLED" value="false" />
+      <option name="IS_SUBST" value="false" />
+      <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+      <option name="IS_IGNORE_MISSING_FILES" value="false" />
+      <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+      <ENTRIES>
+        <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+      </ENTRIES>
+    </EXTENSION>
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="dbt_metricflow_service.main" />
     <option name="PARAMETERS" value="" />

@@ -5,8 +5,8 @@
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
-      <env name="Path" value="$PROJECT_DIR$/dbt-metricflow-service/.venv/Scripts;$Path$" />
       <env name="PYTHONUNBUFFERED" value="1" />
+      <env name="Path" value="E:/IdeaProjects/agent-root/dbt-metricflow-service/.venv/Scripts;$Path$" />
       <env name="VIRTUAL_ENV" value="$PROJECT_DIR$/dbt-metricflow-service/.venv" />
     </envs>
     <option name="SDK_HOME" value="" />
@@ -15,6 +15,17 @@
     <option name="ADD_CONTENT_ROOTS" value="true" />
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <option name="DEBUG_JUST_MY_CODE" value="false" />
+    <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+    <EXTENSION ID="net.ashald.envfile">
+      <option name="IS_ENABLED" value="false" />
+      <option name="IS_SUBST" value="false" />
+      <option name="IS_PATH_MACRO_SUPPORTED" value="false" />
+      <option name="IS_IGNORE_MISSING_FILES" value="false" />
+      <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
+      <ENTRIES>
+        <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
+      </ENTRIES>
+    </EXTENSION>
     <option name="RUN_TOOL" value="" />
     <option name="SCRIPT_NAME" value="pytest" />
     <option name="PARAMETERS" value="tests scripts/tests -v" />
