@@ -6,12 +6,8 @@
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="PYTHONUNBUFFERED" value="1" />
-      <env name="DBT_PROFILES_DIR" value="$PROJECT_DIR$/tmp/metric-debug/profiles" />
-      <env name="JOB_ARTIFACTS_ROOT" value="$PROJECT_DIR$/tmp/metric-debug/artifacts" />
-      <env name="PLATFORM_BINDINGS_FILE" value="$PROJECT_DIR$/tmp/metric-debug/bindings.json" />
-      <env name="PLATFORM_DB_PATH" value="$PROJECT_DIR$/tmp/metric-debug/jobs.sqlite" />
+      <env name="SERVICE_CONFIG_FILE" value="$PROJECT_DIR$/dbt-metricflow-service/config/service.yaml" />
       <env name="Path" value="E:/IdeaProjects/agent-root/dbt-metricflow-service/.venv/Scripts;$Path$" />
-      <env name="PROJECTS_ROOT" value="$PROJECT_DIR$/tmp/metric-debug/projects" />
       <env name="VIRTUAL_ENV" value="$PROJECT_DIR$/dbt-metricflow-service/.venv" />
     </envs>
     <option name="SDK_HOME" value="" />
