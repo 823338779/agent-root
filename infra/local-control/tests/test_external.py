@@ -180,9 +180,9 @@ class ExternalLifecycleTest(unittest.TestCase):
         try:
             window.update()
             app._render()
-            self.assertEqual(str(app.buttons[START]['state']), 'disabled')
-            self.assertEqual(str(app.buttons[STOP]['state']), 'normal')
-            self.assertEqual(str(app.buttons[RESTART]['state']), 'normal')
+            self.assertEqual(str(app.navigation.items[self.spec.key]['buttons'][START]['state']), 'disabled')
+            self.assertEqual(str(app.navigation.items[self.spec.key]['buttons'][STOP]['state']), 'normal')
+            self.assertEqual(str(app.navigation.items[self.spec.key]['buttons'][RESTART]['state']), 'normal')
             app.close()
             deadline = time.monotonic() + 10
             while not app._shutdown.is_set() and time.monotonic() < deadline:

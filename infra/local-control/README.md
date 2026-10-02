@@ -12,6 +12,14 @@ Python + Tkinter 一体化 Windows 桌面客户端，不需要安装第三方 Py
 .\infra\local-control\Start-LocalControl.ps1
 ```
 
+使用 Git Bash 时，也可以通过脚本调用 Python：
+
+```bash
+bash ./infra/local-control/start.sh
+```
+
+或直接执行 Python 启动命令：`python ./infra/local-control/app.py`。`start.sh` 会根据自身位置定位入口，可从任意工作目录调用；请使用 Windows 原生 Python（含 Tk）。
+
 也可以在 IDEA 中选择 `LocalControl` 运行配置；Python SDK 必须包含 Tk。需要查看客户端自身异常时：
 
 ```powershell
@@ -32,7 +40,10 @@ python .\infra\local-control\app.py
 | Agent V2 前端 | 5173 | 原项目 `npm run dev`，固定端口及 strictPort |
 | Metric Platform 前端 | 5174 | 原项目 `npm run dev`，固定端口及 strictPort |
 
-- 选中服务后可启动、停止、重启、打开页面，下方显示构建和运行日志。
+- 左侧每个服务项内提供启动、停止、重启，前端服务额外提供“打开页面”。点击操作会同步选中该服务，右侧立即显示对应的构建和运行日志。
+- 当前服务以深蓝底、白字和“当前”标记突出；阅读日志后仍保留选中标记。左侧支持滚动和上下方向键选择，缩小窗口后保持当前服务可见。
+- 全局批量操作集中在窗口右上方；右侧“启动信息”可内联展开当前服务的工作目录与健康检查地址。
+- 日志区按级别突出错误和警告，时间弱化显示；支持自动换行、复制选区或全部日志、回到底部。“专注日志”收起左侧服务目录以扩大阅读区域，点击“显示服务”还原；查看历史日志时，新输出不会把视图拉回底部。
 - 构建和服务进程在后台运行，启动器为命令及其普通子进程提供隐藏控制台，不弹出命令行黑框；stdout/stderr 仍显示在中控日志中。
 - **点击前端行的端口即可在默认浏览器打开对应页面**；“打开页面”按钮也使用相同地址。
 - “启动全部”并行提交五个启动任务；“停止全部”停止自建和已识别的外部服务；“重启已变更”只处理运行中的、确实需要重启的可控服务。
@@ -77,7 +88,7 @@ IDE 环境变量和启动参数在每次启动时重新读取，Windows 路径�
 ```powershell
 Set-Location .\infra\local-control
 python -m unittest discover -s tests -v
-python -m py_compile app.py config.py watcher.py runtime.py winjob.py external.py
+python -m py_compile app.py config.py watcher.py runtime.py winjob.py external.py log_panel.py service_list.py
 ```
 
 首次集成验证中，Metric Platform 常规打包通过，Agent V2 的生产代码打包通过。Agent V2 使用 `-DskipTests package` 时，当时工作区中的 `ConversationOrganizationPersistenceTest` 的 `setVersion`、`setTitle` 调用无法编译；本任务不修改产品测试。客户端的生产代码启动构建与产品测试结果分别报告。
