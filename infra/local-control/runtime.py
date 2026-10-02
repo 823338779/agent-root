@@ -1,9 +1,10 @@
-"""后台管理本客户端创建的服务进程，UI 只读取快照。"""
+"""后台管理自建及已确认身份的外部服务进程，UI 只读取快照。"""
 
 import base64
 from collections import deque
 from dataclasses import dataclass
 import json
+import locale
 import logging
 from logging.handlers import RotatingFileHandler
 import os
@@ -17,12 +18,14 @@ import urllib.error
 import urllib.request
 
 from config import ServiceSpec, UTF8
+from external import identify, stop_external
 from watcher import SourceWatcher, compare, needs_restart
 
 # 窗口状态为文字与颜色的共同依据，不能仅凭端口就标记为运行中。
 STOPPED, BUILDING, STARTING = '已停止', '构建中', '启动中'
 RUNNING, UNHEALTHY, STOPPING = '运行中', '不健康', '停止中'
-EXTERNAL, FAILED, EXITED = '外部运行 / 端口占用', '启动失败', '异常退出'
+EXTERNAL, FAILED, EXITED = '端口占用 · 未识别', '启动失败', '异常退出'
+RUNNING_EXTERNAL, UNHEALTHY_EXTERNAL = '运行中 · 外部', '不健康 · 外部'
 LOCAL_HOST = '127.0.0.1'
 WINDOWS = 'nt'
 PS_ENCODING = 'utf-16-le'
@@ -40,7 +43,8 @@ HTTP_MESSAGE = 'HTTP {status}'
 MESSAGE_START = '启动服务'
 MESSAGE_BUILD = '构建最新源码'
 MESSAGE_STOPPED = '服务已停止'
-MESSAGE_EXTERNAL = '端口已被占用；请在原 IDE 或终端中管理该进程'
+MESSAGE_EXTERNAL = '端口已被占用，但无法确认是本项目服务；未开放停止和重启'
+MESSAGE_IDENTIFIED = '已识别外部服务，可停止或重启；原始日志仍在原 IDE 或终端'
 MESSAGE_EXIT = '进程退出，退出码 {code}'
 MESSAGE_BUILD_FAILED = '构建失败，退出码 {code}；请查看日志'
 MESSAGE_SCAN_FAILED = '源码扫描失败：{error}'
@@ -57,7 +61,7 @@ PIPE_MODE = 'r'
 class ServiceView:
     # 当前运行状态，来源于进程与健康检查。
     status: str
-    # 仅显示本客户端创建的进程 PID。
+    # 本客户端启动器 PID，或经身份校验的外部监听服务 PID。
     pid: int | None
     # 最近一次启动、健康检查或失败原因。
     detail: str
@@ -71,6 +75,8 @@ class ServiceView:
     logs: tuple[str, ...]
     # 文件监视失败时单独告警，不覆盖进程健康状态。
     scan_error: str
+    # 外部进程可显式操作，但关闭中控时不自动终止它。
+    external: bool = False
 
 
 def port_open(port: int) -> bool:
@@ -178,6 +184,8 @@ class ServiceRunner:
         self._stopping = False
         self._restart_requested = False
         self._process = None
+        # 保存已识别外部服务的创建时间；操作前再次核对，避免误停复用 PID。
+        self._external = None
         self._reader = None
         self._status = STOPPED
         self._detail = EMPTY
@@ -205,10 +213,13 @@ class ServiceRunner:
         with self._lock:
             process = self._process
             pid = process.pid if process and process.poll() is None else None
+            external = pid is None and self._external is not None
+            if external:
+                pid = self._external.pid
             return ServiceView(self._status, pid, self._detail, dict(self._changes),
                                needs_restart(self._changes, frontend=self.spec.frontend),
                                self._operation.locked() or self._stopping, tuple(self._logs),
-                               self._scan_error)
+                               self._scan_error, external)
 
     def _run_action(self, action) -> None:
         try:
@@ -222,7 +233,7 @@ class ServiceRunner:
     def start(self) -> bool:
         # 重复点击和外部端口占用均不创建第二份进程。
         with self._lock:
-            if self._stopping or (self._process and self._process.poll() is None):
+            if self._stopping or self._external or (self._process and self._process.poll() is None):
                 return False
             if self._status == EXTERNAL or not self._operation.acquire(blocking=False):
                 return False
@@ -246,7 +257,7 @@ class ServiceRunner:
             with self._lock:
                 self._process = None
         if port_open(self.spec.port):
-            self._state(EXTERNAL, MESSAGE_EXTERNAL)
+            self._set_external(*self._inspect_external())
             return
         # 记录的是构建前源码，构建途中又保存的修改不会被成功启动吞掉。
         candidate = self.watcher.capture()
@@ -261,6 +272,9 @@ class ServiceRunner:
                     return
             terminate_tree(process)
             self._finish_reader()
+            # 构建已结束，释放进程引用，避免后续外部服务被误判为构建退出。
+            with self._lock:
+                self._process = None
             if process.returncode:
                 self._state(FAILED, MESSAGE_BUILD_FAILED.format(code=process.returncode))
                 self._log(self._detail)
@@ -269,7 +283,7 @@ class ServiceRunner:
             self._state(STOPPED, MESSAGE_CANCELLED)
             return
         if port_open(self.spec.port):
-            self._state(EXTERNAL, MESSAGE_EXTERNAL)
+            self._set_external(*self._inspect_external())
             return
         self._log(MESSAGE_START)
         self._spawn(self.spec.command)
@@ -287,10 +301,15 @@ class ServiceRunner:
             self._process = process
 
         def consume():
-            # 二进制管道以 UTF-8 容错解码；单行和累计日志均有界。
+            # Java/编译器可能使用 Windows 本地编码；逐行兼容同一管道中的 UTF-8 输出。
+            native_encoding = locale.getencoding()
             with process.stdout:
                 for line in iter(lambda: process.stdout.readline(16384), b''):
-                    self._log(line.decode(UTF8, errors=READ_ERROR).rstrip(LINE_ENDINGS))
+                    try:
+                        decoded = line.decode(UTF8)
+                    except UnicodeDecodeError:
+                        decoded = line.decode(native_encoding, errors=READ_ERROR)
+                    self._log(decoded.rstrip(LINE_ENDINGS))
 
         self._reader = threading.Thread(target=consume, daemon=True)
         self._reader.start()
@@ -300,21 +319,34 @@ class ServiceRunner:
         if self._reader:
             self._reader.join(timeout=2)
 
-    def _stop(self) -> None:
+    def _stop(self, managed_only: bool = False) -> None:
         with self._lock:
             process = self._process
+            external = self._external
         if process:
             terminate_tree(process)
             self._finish_reader()
+        # 排队之后才发现的外部服务同样受关闭保护；不能只在入队时判断。
+        if external and managed_only:
+            with self._lock:
+                self._process = None
+                self._candidate = None
+            self._set_external(*self._inspect_external())
+            return
+        if external:
+            stop_external(self.spec, external)
         with self._lock:
             self._process = None
+            self._external = None
             self._candidate = None
             self._state(STOPPED, MESSAGE_STOPPED)
         self._log(MESSAGE_STOPPED)
 
-    def _queue_stop(self, restart: bool) -> bool:
+    def _queue_stop(self, restart: bool, managed_only: bool = False) -> bool:
         # 先置取消标记，再等待当前构建退出；防止排队的重启越过停止。
         with self._lock:
+            if managed_only and self._external and not self._stopping and not self._operation.locked():
+                return False
             if self._stopping:
                 if not restart:
                     self._restart_requested = False
@@ -322,7 +354,7 @@ class ServiceRunner:
                     self._state(STOPPING)
                     return True
                 return False
-            if restart and self._status == EXTERNAL:
+            if self._status == EXTERNAL and self._external is None:
                 return False
             self._stopping = True
             self._restart_requested = restart
@@ -332,7 +364,7 @@ class ServiceRunner:
         def action():
             with self._operation:
                 try:
-                    self._stop()
+                    self._stop(managed_only=managed_only)
                     with self._lock:
                         launch = self._restart_requested
                         if launch:
@@ -340,7 +372,8 @@ class ServiceRunner:
                     if launch:
                         self._launch()
                         if self._cancel.is_set():
-                            self._stop()
+                            # 取消重启仅清理本次自建进程，不停止启动途中新出现的外部服务。
+                            self._stop(managed_only=True)
                 except Exception as error:
                     self._state(FAILED, MESSAGE_STOP_FAILED.format(error=error))
                     self._log(self._detail)
@@ -351,8 +384,8 @@ class ServiceRunner:
         threading.Thread(target=action, daemon=True).start()
         return True
 
-    def stop(self) -> bool:
-        return self._queue_stop(False)
+    def stop(self, managed_only: bool = False) -> bool:
+        return self._queue_stop(False, managed_only)
 
     def restart(self) -> bool:
         return self._queue_stop(True)
@@ -365,6 +398,20 @@ class ServiceRunner:
                 return True
             time.sleep(0.05)
         return False
+
+    def _inspect_external(self):
+        # 状态来自 HTTP，身份来自系统进程信息，两者分别校验。
+        found = identify(self.spec)
+        healthy, detail = probe(self.spec)
+        if found:
+            status = RUNNING_EXTERNAL if healthy else UNHEALTHY_EXTERNAL
+            return found, status, MESSAGE_IDENTIFIED + '；' + detail
+        return None, EXTERNAL, MESSAGE_EXTERNAL + '；' + detail
+
+    def _set_external(self, found, status, detail):
+        with self._lock:
+            self._external = found
+            self._state(status, detail)
 
     def refresh(self) -> None:
         # 探测和文件扫描不持状态锁，慢磁盘和失败 HTTP 不会卡住窗口。
@@ -410,21 +457,22 @@ class ServiceRunner:
                     if self._process is process and not self._stopping:
                         terminate_tree(process)
                         self._finish_reader()
+                        self._process = None
                         self._state(EXITED, MESSAGE_EXIT.format(code=process.returncode))
                 finally:
                     self._operation.release()
             else:
                 occupied = port_open(self.spec.port)
-                detail = EMPTY
+                found, external_status, detail = None, STOPPED, EMPTY
                 if occupied:
-                    _, health_detail = probe(self.spec)
-                    detail = MESSAGE_EXTERNAL + '；' + health_detail
+                    found, external_status, detail = self._inspect_external()
                 with self._lock:
                     if self._process is not process or self._operation.locked() or self._stopping:
                         return
                     if occupied:
-                        self._state(EXTERNAL, detail)
-                    elif status == EXTERNAL:
+                        self._set_external(found, external_status, detail)
+                    elif status in (EXTERNAL, RUNNING_EXTERNAL, UNHEALTHY_EXTERNAL) or self._external:
+                        self._external = None
                         self._state(STOPPED)
         finally:
             self._refresh_lock.release()

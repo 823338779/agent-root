@@ -8,7 +8,8 @@ from tkinter import ttk
 import webbrowser
 
 from config import load_services
-from runtime import ServiceRunner, RUNNING, EXTERNAL, FAILED, EXITED, UNHEALTHY, STOPPING
+from runtime import (ServiceRunner, RUNNING, EXTERNAL, FAILED, EXITED, UNHEALTHY, STOPPING,
+                     RUNNING_EXTERNAL, UNHEALTHY_EXTERNAL)
 
 # 文案和设计值集中定义，业务状态始终直接来自运行控制器。
 TITLE = '本地服务中控'
@@ -22,12 +23,13 @@ BORDER = '#d5dde8'
 EMPTY = ''
 APP_GEOMETRY = '1180x780'
 SUMMARY_LOADING = '正在读取启动配置和源码…'
-SUMMARY_TEMPLATE = '{running} 个运行中    {external} 个外部占用    {changed} 个代码已变更'
-FOOTER = '每 3 秒检测一次 · 关闭客户端将停止由它启动的服务 · 外部进程由原 IDE 管理'
+SUMMARY_TEMPLATE = '{running} 个运行中    {external} 个外部服务    {changed} 个代码已变更'
+FOOTER = '每 3 秒检测一次 · 已识别的外部服务支持停止 / 重启 · 关闭客户端仅停止由它启动的服务'
 FOOTER_CLOSING = '正在停止受管服务并释放日志，请稍候…'
 FOOTER_CLOSE_FAILED = '部分服务未能停止。请查看服务详情，处理后再次关闭窗口。'
 DETAIL_EMPTY = '选择服务，查看日志和源码变更'
 LOG_EMPTY = '尚无运行日志。点击“启动”后，构建与运行输出会显示在这里。'
+LOG_EXTERNAL = '此服务从外部启动，历史输出请在原 IDE 或终端查看。通过中控重启后，新日志将在这里显示。'
 CHANGES_EMPTY = '未发现源码变更。服务成功重启后，将更新检测基线。'
 CHANGE_RESTART = '代码已变更 · 建议重启 ({count})'
 CHANGE_HMR = '代码已变更 · Vite 热更新 ({count})'
@@ -37,7 +39,7 @@ DETAIL_TEMPLATE = '{name}   |   {detail}\n工作目录：{cwd}\n健康检查：{
 LOG_TAB, CHANGES_TAB = '运行日志', '变更文件'
 START, STOP, RESTART, OPEN = '启动', '停止', '重启', '打开页面'
 START_ALL, STOP_ALL, RESTART_CHANGED = '启动全部', '停止全部', '重启已变更'
-ACTION_REJECTED = '服务正在操作或由外部启动，请查看运行状态。'
+ACTION_REJECTED = '服务正在操作，或端口归属尚未确认，请查看运行状态。'
 RESTART_NONE = '当前没有需要重启的受管服务。'
 ACTION_ACCEPTED = '操作已提交；进度与结果会显示在服务列表和日志中。'
 LOAD_ERROR = '无法加载配置：{error}'
@@ -243,15 +245,15 @@ class ControlApp:
             spec = self.runners[key].spec
             changed = (CHANGE_RESTART if view.restart_needed else CHANGE_HMR).format(count=len(view.changes))
             label = SCAN_FAILED if view.scan_error else changed if view.changes else CHANGE_CLEAN
-            tag = (TAG_ERROR if view.status in (FAILED, EXITED, UNHEALTHY) else
+            tag = (TAG_ERROR if view.status in (FAILED, EXITED, UNHEALTHY, UNHEALTHY_EXTERNAL) else
                    TAG_WARNING if view.changes or view.scan_error else
-                   TAG_SUCCESS if view.status == RUNNING else EMPTY)
+                   TAG_SUCCESS if view.status in (RUNNING, RUNNING_EXTERNAL) else EMPTY)
             port_label = f'{spec.port} ↗' if spec.frontend else str(spec.port)
             self.tree.item(key, values=(spec.name, view.status, port_label, view.pid or '—', label), tags=(tag,))
         if views:
             self.summary.set(SUMMARY_TEMPLATE.format(
-                running=sum(view.status == RUNNING for view in views.values()),
-                external=sum(view.status == EXTERNAL for view in views.values()),
+                running=sum(view.status in (RUNNING, RUNNING_EXTERNAL) for view in views.values()),
+                external=sum(view.external for view in views.values()),
                 changed=sum(bool(view.changes) for view in views.values())))
         for button in self.bulk_buttons:
             button.configure(state=STATE_DISABLED if self._closing or not views else STATE_NORMAL)
@@ -264,6 +266,8 @@ class ControlApp:
         self.detail.set(DETAIL_TEMPLATE.format(name=runner.spec.name, detail=view.detail or view.status,
                                                cwd=runner.spec.cwd, health=runner.spec.health_url))
         logs = NEWLINE.join(view.logs) or LOG_EMPTY
+        if view.external:
+            logs = LOG_EXTERNAL + NEWLINE + NEWLINE + NEWLINE.join(view.logs)
         changes = NEWLINE.join(f'{kind}  {path}' for path, kind in view.changes.items()) or CHANGES_EMPTY
         if view.scan_error:
             changes = view.scan_error + NEWLINE + changes
@@ -350,10 +354,10 @@ class ControlApp:
         def finish():
             runners = tuple(self.runners.values())
             for runner in runners:
-                runner.stop()
+                runner.stop(managed_only=True)
             success = True
             for runner in runners:
-                success = runner.wait_idle(30) and runner.view().pid is None and success
+                success = runner.wait_idle(30) and (runner.view().pid is None or runner.view().external) and success
             if success:
                 for runner in runners:
                     runner.close_logs()

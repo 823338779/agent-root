@@ -99,7 +99,15 @@ def host(name, command):
         checked(KERNEL.AssignProcessToJobObject(handle, KERNEL.GetCurrentProcess()))
     finally:
         KERNEL.CloseHandle(handle)
-    return subprocess.call(command)
+    # 为实际命令创建不可见控制台；后续 Java、Node、Python 子进程继承它，
+    # 避免无控制台的 pythonw 启动器让后代进程重新分配可见黑框。
+    startup = subprocess.STARTUPINFO()
+    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startup.wShowWindow = subprocess.SW_HIDE
+    # 显式传递标准句柄，使新控制台继续写入中控管道，而非隐藏窗口的缓冲区。
+    return subprocess.call(command, stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                           startupinfo=startup,
+                           creationflags=subprocess.CREATE_NEW_CONSOLE)
 
 
 if __name__ == '__main__':
