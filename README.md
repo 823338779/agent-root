@@ -95,6 +95,14 @@ psql -h localhost -p 5432 -U data_agent -d metric_platform
 
 ## 快速开始
 
+需要在桌面统一管理 Metric Platform、dbt-service、Agent V2 和两个前端时，运行：
+
+```powershell
+.\infra\local-control\Start-LocalControl.ps1
+```
+
+客户端支持启停、健康检测、日志和页内源码变更提示；点击前端端口可直接打开浏览器。详见 [本地服务桌面中控](infra/local-control/README.md)。
+
 克隆工作区并初始化子模块：
 
 ```powershell
