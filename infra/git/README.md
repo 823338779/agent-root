@@ -63,3 +63,5 @@ git ls-remote ssh://git@agent-metrics-git/agent-admin/metrics.git refs/heads/mai
 ```
 
 隔离测试覆盖 Web 健康、禁止注册、幂等初始化、SSH clone/push、`main` 强推与删除拒绝、功能分支以及容器重建后的数据和主机密钥持久性。测试日志中预期的 `push rejected` 是保护规则验收，不代表测试失败。
+
+指标分支接线可显式追加 `-BranchEventTarget http://host.docker.internal:8000/internal/git-branch-events`。签名 Secret 只从当前进程 `BRANCH_EVENT_SECRET` 读取；脚本停用已识别旧发布目标及重复分支通知，更新唯一 push/delete 接收器。省略参数保留现有通知配置。服务部署、唯一发布者和聚合验收见 [分支验证说明](../verification/README.md)。

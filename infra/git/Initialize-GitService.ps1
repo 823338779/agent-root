@@ -1,9 +1,14 @@
 param(
     [ValidateRange(1024, 65535)][int] $Port = 2222,
-    [SecureString] $AdminPassword
+    [SecureString] $AdminPassword,
+    # 显式指定才迁移发布通知；签名从 BRANCH_EVENT_SECRET 读取。
+    [string] $BranchEventTarget
 )
 
 $ErrorActionPreference = 'Stop'
+if ($BranchEventTarget -and [string]::IsNullOrWhiteSpace($env:BRANCH_EVENT_SECRET)) {
+    throw '缺少 BRANCH_EVENT_SECRET，尚未更改 Git 服务'
+}
 . (Join-Path $PSScriptRoot 'Forgejo-Service.ps1')
 
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -50,6 +55,7 @@ try {
     Ensure-ForgejoRepository $baseUri $token
     Ensure-ForgejoSshKey $baseUri $token $publicKey
     Ensure-MainProtection $baseUri $token
+    if ($BranchEventTarget) { Ensure-MetricsBranchWebhook $baseUri $token $BranchEventTarget $env:BRANCH_EVENT_SECRET }
 } finally {
     if ($token) { Remove-ForgejoAccessToken $baseUri $token }
     $token = $null

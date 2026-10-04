@@ -44,7 +44,7 @@ services:
       FORGEJO__repository__DEFAULT_BRANCH: main
       FORGEJO__repository__FORCE_PRIVATE: "true"
       FORGEJO__security__INSTALL_LOCK: "true"
-      # 允许 Webhook 访问 Docker Desktop 宿主机上的指标平台。
+      # 分支事件交由宿主机 dbt-service 核实与构建，平台只读代理。
       FORGEJO__webhook__ALLOWED_HOST_LIST: host.docker.internal
     ports:
       - "127.0.0.1:3000:3000"

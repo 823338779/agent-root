@@ -45,3 +45,9 @@ docker compose -f .\infra\compose\compose.yml --profile full down
 ```
 
 只有明确要删除 PostgreSQL、Redis 数据时，才追加 `--volumes`。Forgejo 的 SQLite、仓库及 SSH 主机密钥使用外部卷 `agent-platform_forgejo-data`，该命令不会删除它们；旧 Git 卷也不会被自动迁移或删除。
+
+## 指标开发分支
+
+当前 Compose 继续只为新分支流程提供基础设施，dbt-service 与 Agent V2 按各自 README 在宿主机运行。`.env.example` 中新增的分支配置需注入对应宿主机进程，Compose 不会自动为宿主机设置环境变量。签名与服务凭据保持空占位，不提交实际值。
+
+Forgejo 事件目标使用 `host.docker.internal:<服务端口>/internal/git-branch-events`；启用事件补偿扫描并停用旧平台发布者。预检、接线与验收命令见 [分支验证说明](../verification/README.md)。

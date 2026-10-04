@@ -28,6 +28,8 @@
 
 ## 环境要求
 
+指标仓库的多分支开发部署、唯一发布通知和三服务聚合检查见 [指标分支验收](infra/verification/README.md)。Agent V2、dbt-service 与指标平台各自独立构建，线上与开发预览通过固定分支、版本隔离。
+
 - 支持子模块的 Git
 - JDK 21 和 Maven
 - Node.js 和 npm

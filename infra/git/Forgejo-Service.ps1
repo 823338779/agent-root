@@ -150,6 +150,37 @@ function Ensure-ForgejoRepository([string] $BaseUri, [string] $Token) {
     }
 }
 
+# 用户显式启用分支接线时替换旧发布通知；其他用途 Webhook 保留，重复目标停用。
+function Ensure-MetricsBranchWebhook([string] $BaseUri, [string] $Token, [string] $Target, [string] $Secret) {
+    $uri = $null
+    if (![Uri]::TryCreate($Target, [UriKind]::Absolute, [ref] $uri) -or
+        $uri.Scheme -notin @('http', 'https') -or $uri.AbsolutePath -cne '/internal/git-branch-events' -or
+        $uri.UserInfo -or $uri.Query -or [string]::IsNullOrWhiteSpace($Secret)) {
+        throw '分支事件必须配置合法服务目标与非空 Secret'
+    }
+    $path = "/repos/$script:ForgejoAdminUsername/$script:ForgejoRepositoryName/hooks"
+    $response = Invoke-ForgejoApi 'GET' $BaseUri "$path`?limit=50" $Token $null
+    if ($response.StatusCode -ne 200 -or @($response.Data).Count -ge 50) { throw 'hooks 列举失败或超限，拒绝部分接线' }
+    $existing = $null
+    foreach ($hook in @($response.Data)) {
+        $hookUri = $null
+        if (![Uri]::TryCreate($hook.config.url, [UriKind]::Absolute, [ref] $hookUri)) { continue }
+        $isService = $hookUri.AbsolutePath -eq '/internal/git-branch-events'
+        $isLegacy = $hookUri.AbsolutePath -eq '/internal/git-sync/events' -or
+            $hookUri.AbsolutePath -match '^/api/(v1/)?dbt/.*webhook'
+        if ($isService -and $hook.config.url -ceq $Target -and !$existing) { $existing = $hook; continue }
+        if (($isService -or $isLegacy) -and $hook.active) {
+            $disabled = Invoke-ForgejoApi 'PATCH' $BaseUri "$path/$($hook.id)" $Token @{ active = $false }
+            if ($disabled.StatusCode -ne 200) { throw '停用旧发布 Webhook 失败' }
+        }
+    }
+    $body = @{ type = 'forgejo'; active = $true; events = @('push', 'delete'); branch_filter = '*'
+        config = @{ url = $Target; content_type = 'json'; secret = $Secret } }
+    $written = if ($existing) { Invoke-ForgejoApi 'PATCH' $BaseUri "$path/$($existing.id)" $Token $body }
+        else { Invoke-ForgejoApi 'POST' $BaseUri $path $Token $body }
+    if ($written.StatusCode -notin @(200, 201)) { throw '创建或更新分支事件 Webhook 失败' }
+}
+
 # SSH Key 按固定标题幂等核对；标题相同但公钥不同表示身份漂移，必须人工处理。
 function Ensure-ForgejoSshKey([string] $BaseUri, [string] $Token, [string] $PublicKey) {
     $response = Invoke-ForgejoApi 'GET' $BaseUri '/user/keys?limit=50' $Token $null

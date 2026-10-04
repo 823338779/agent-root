@@ -70,6 +70,21 @@ try {
     $token = New-ForgejoAccessToken $container
     Ensure-ForgejoRepository $baseUri $token
 
+    # 隔离仓库先放置旧平台目标，接线后仅保留一个签名服务通知，重复初始化不增生。
+    $hooksPath = "/repos/$script:ForgejoAdminUsername/$script:ForgejoRepositoryName/hooks"
+    Invoke-ForgejoApi 'POST' $baseUri $hooksPath $token @{
+        type = 'forgejo'; active = $true; events = @('push')
+        config = @{ url = 'http://host.docker.internal:8090/internal/git-sync/events'; content_type = 'json' }
+    } | Out-Null
+    $eventSecret = [Guid]::NewGuid().ToString('N')
+    $eventUrl = 'http://host.docker.internal:8081/internal/git-branch-events'
+    Ensure-MetricsBranchWebhook $baseUri $token $eventUrl $eventSecret
+    Ensure-MetricsBranchWebhook $baseUri $token $eventUrl $eventSecret
+    $hooks = (Invoke-ForgejoApi 'GET' $baseUri $hooksPath $token $null).Data
+    $activeHooks = @($hooks | Where-Object active)
+    Assert-True ($activeHooks.Count -eq 1 -and $activeHooks[0].config.url -eq $eventUrl) '发布通知目标不唯一'
+    Assert-True ($activeHooks[0].events -contains 'push' -and $activeHooks[0].events -contains 'delete') '分支通知事件缺失'
+
     # 客户端密钥只存在于本次随机测试目录，用真实 SSH Git 行为验证服务端配置。
     $key = Join-Path $testRoot 'id_ed25519'
     Invoke-Checked ssh-keygen @('-q', '-t', 'ed25519', '-N', '', '-f', $key)
