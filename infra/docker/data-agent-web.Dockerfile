@@ -1,8 +1,11 @@
 FROM node:22-alpine AS build
 WORKDIR /workspace
-COPY data-agent/frontend/package.json data-agent/frontend/package-lock.json ./
+COPY data-agent-v2/frontend/package.json data-agent-v2/frontend/package-lock.json ./
 RUN npm ci
-COPY data-agent/frontend ./
+COPY data-agent-v2/frontend ./
+# Vite在构建时固化浏览器可访问的指标平台地址。
+ARG VITE_METRIC_PLATFORM_URL
+ENV VITE_METRIC_PLATFORM_URL=${VITE_METRIC_PLATFORM_URL}
 RUN npm run build
 
 FROM nginx:1.27-alpine

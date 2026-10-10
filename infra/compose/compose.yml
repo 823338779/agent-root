@@ -44,8 +44,6 @@ services:
       FORGEJO__repository__DEFAULT_BRANCH: main
       FORGEJO__repository__FORCE_PRIVATE: "true"
       FORGEJO__security__INSTALL_LOCK: "true"
-      # 分支事件交由宿主机 dbt-service 核实与构建，平台只读代理。
-      FORGEJO__webhook__ALLOWED_HOST_LIST: host.docker.internal
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:${GIT_SSH_PORT:-2222}:2222"
@@ -148,6 +146,9 @@ services:
       SPRING_DATA_REDIS_USERNAME: default
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
       METRIC_PLATFORM_IDENTITY_AUTH_BOOTSTRAP_PASSWORD: ${METRIC_PLATFORM_ADMIN_PASSWORD:-admin}
+      AGENT_BASE_URI: http://data-agent-api:8080
+      DBT_SERVICE_BASE_URI: ${DBT_SERVICE_BASE_URI:-http://host.docker.internal:8000}
+      DBT_SERVICE_TOKEN: ${DBT_SERVICE_TOKEN:-}
     depends_on:
       metric-platform-db-init:
         condition: service_completed_successfully
@@ -161,33 +162,28 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  # Data Agent Web 登录账号：admin；密码：${DATA_AGENT_ADMIN_PASSWORD:-admin}。
-  # 其 PostgreSQL 与 Redis 凭据复用上方中间件账号。
+  # Data Agent V2当前使用固定本地身份，不启用旧版账号与调度配置。
   data-agent-api:
     profiles: [full]
     build:
       context: ../..
       dockerfile: infra/docker/data-agent-api.Dockerfile
     environment:
-      SPRING_PROFILES_ACTIVE: swarm
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/data_agent
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/data_agent_v2
       SPRING_DATASOURCE_USERNAME: data_agent
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_USERNAME: default
-      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
+      DATA_AGENT_MODEL_PROVIDER: ollama
       SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      DATA_AGENT_METRIC_PLATFORM_BASE_URL: http://metric-platform-api:8090
-      DATA_AGENT_SINGLE_ACCOUNT_PASSWORD: ${DATA_AGENT_ADMIN_PASSWORD:-admin}
-      DATA_AGENT_SECURITY_FORMAL_AUTHENTICATION_CONFIGURED: "true"
-      DATA_AGENT_SCHEDULER_NODE_ID: compose-data-agent
-      DATA_AGENT_SCHEDULER_INSTANCE_ADDRESS: data-agent-api:8080
+      DATA_AGENT_GIT_ENABLED: ${DATA_AGENT_GIT_ENABLED:-false}
+      DATA_AGENT_GIT_WORKSPACE_ROOT: /app/data/git
+      DATA_AGENT_DBT_ENABLED: ${DATA_AGENT_DBT_ENABLED:-false}
+      DATA_AGENT_DBT_BASE_URL: ${DATA_AGENT_DBT_BASE_URL:-http://host.docker.internal:8000}
+      DATA_AGENT_DBT_SERVICE_TOKEN: ${DATA_AGENT_DBT_SERVICE_TOKEN:-}
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
-      postgres:
-        condition: service_healthy
+      data-agent-v2-db-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       metric-platform-api:
@@ -205,6 +201,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/metric-platform-web.Dockerfile
+      args:
+        VITE_AGENT_URL: ${AGENT_PUBLIC_URL:-http://localhost:8080}
     depends_on:
       metric-platform-api:
         condition: service_healthy
@@ -217,6 +215,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/data-agent-web.Dockerfile
+      args:
+        VITE_METRIC_PLATFORM_URL: ${METRIC_PLATFORM_PUBLIC_URL:-http://localhost:8090}
     depends_on:
       data-agent-api:
         condition: service_healthy

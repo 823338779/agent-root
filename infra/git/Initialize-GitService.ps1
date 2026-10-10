@@ -1,14 +1,11 @@
 param(
     [ValidateRange(1024, 65535)][int] $Port = 2222,
     [SecureString] $AdminPassword,
-    # 显式指定才迁移发布通知；签名从 BRANCH_EVENT_SECRET 读取。
-    [string] $BranchEventTarget
+    # 显式指定才停用已知旧发布通知，不创建新的自动发布链路。
+    [switch] $DisableLegacyPublishing
 )
 
 $ErrorActionPreference = 'Stop'
-if ($BranchEventTarget -and [string]::IsNullOrWhiteSpace($env:BRANCH_EVENT_SECRET)) {
-    throw '缺少 BRANCH_EVENT_SECRET，尚未更改 Git 服务'
-}
 . (Join-Path $PSScriptRoot 'Forgejo-Service.ps1')
 
 $workspace = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -55,7 +52,7 @@ try {
     Ensure-ForgejoRepository $baseUri $token
     Ensure-ForgejoSshKey $baseUri $token $publicKey
     Ensure-MainProtection $baseUri $token
-    if ($BranchEventTarget) { Ensure-MetricsBranchWebhook $baseUri $token $BranchEventTarget $env:BRANCH_EVENT_SECRET }
+    if ($DisableLegacyPublishing) { Disable-MetricsPublishingWebhooks $baseUri $token }
 } finally {
     if ($token) { Remove-ForgejoAccessToken $baseUri $token }
     $token = $null
@@ -92,8 +89,7 @@ if (!$existing.Contains($include)) {
     [IO.File]::WriteAllText($sshConfig, "$include`n$existing")
 }
 
-# 当前进程直接获得 Data Agent V2 所需配置，并用真实 SSH 读取 main 作为最终验收。
+# 仓库地址交给 Agent 项目配置，不能作为新会话的隐式全局默认目标。
 $env:DATA_AGENT_GIT_ENABLED = 'true'
-$env:DATA_AGENT_GIT_REMOTE_URI = $remoteUri
 Invoke-Checked git @('ls-remote', $remoteUri, 'refs/heads/main')
-Write-Output "Forgejo 已就绪：$baseUri；当前 PowerShell 已设置 DATA_AGENT_GIT_ENABLED 和 DATA_AGENT_GIT_REMOTE_URI。"
+Write-Output "Forgejo 已就绪：$baseUri；DATA_AGENT_GIT_ENABLED 已开启。请将 $remoteUri 配置到 Agent 项目的 repository。"

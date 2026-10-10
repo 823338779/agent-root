@@ -27,7 +27,7 @@ services:
       restart_policy:
         condition: any
 
-  metric-platform-db-init:
+  application-db-init:
     image: postgres:16.9-alpine
     environment:
       PGHOST: postgres
@@ -41,6 +41,7 @@ services:
       - |
         export PGPASSWORD="$$(cat /run/secrets/postgres-password)"
         until pg_isready -d postgres; do sleep 2; done
+        psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='data_agent_v2'" | grep -q 1 || createdb -O data_agent data_agent_v2
         psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='metric_platform'" | grep -q 1 || createdb -O data_agent metric_platform
     deploy:
       replicas: 1
@@ -76,12 +77,13 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: swarm
       SPRING_CONFIG_ADDITIONAL_LOCATION: optional:file:/run/secrets/application-secrets.yml
-      DATA_AGENT_SCHEDULER_NODE_ID: "{{.Task.ID}}"
-      DATA_AGENT_SCHEDULER_INSTANCE_ADDRESS: "{{.Task.Name}}"
-      DATA_AGENT_CLUSTER_EVENTS_NODE_ID: "{{.Task.ID}}"
+      DATA_AGENT_MODEL_PROVIDER: ollama
+      DATA_AGENT_GIT_ENABLED: ${DATA_AGENT_GIT_ENABLED:-false}
+      DATA_AGENT_GIT_WORKSPACE_ROOT: /app/data/git
+      DATA_AGENT_DBT_ENABLED: ${DATA_AGENT_DBT_ENABLED:-false}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
     secrets:
-      - source: data-agent-application
+      - source: data-agent-v2-application
         target: application-secrets.yml
     networks: [platform-backend]
     healthcheck:
@@ -91,15 +93,17 @@ services:
       retries: 12
       start_period: 45s
     deploy:
-      replicas: 3
+      # 当前 Git 草稿保存在容器本地；单副本避免会话请求跨副本丢失未推送文件。
+      replicas: 1
       placement:
         preferences:
           - spread: node.id
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
-        failure_action: rollback
+        order: stop-first
+        # 新数据迁移后不能自动回退旧二进制；停写后核对备份或前向修复。
+        failure_action: pause
       restart_policy:
         condition: on-failure
 
@@ -110,7 +114,7 @@ services:
       SPRING_CONFIG_ADDITIONAL_LOCATION: optional:file:/run/secrets/application-secrets.yml
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
     secrets:
-      - source: metric-platform-application
+      - source: metric-platform-v3-application
         target: application-secrets.yml
     networks: [platform-backend]
     healthcheck:
@@ -127,8 +131,8 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
-        failure_action: rollback
+        order: stop-first
+        failure_action: pause
       restart_policy:
         condition: on-failure
 
@@ -178,7 +182,7 @@ secrets:
     external: true
   redis-password:
     external: true
-  data-agent-application:
+  data-agent-v2-application:
     external: true
-  metric-platform-application:
+  metric-platform-v3-application:
     external: true

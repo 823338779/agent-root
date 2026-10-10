@@ -1,24 +1,14 @@
 {
-  "agent": {
-    "projectId": "ecommerce_metrics",
-    "repositoryId": "agent-admin/metrics",
-    "subdir": ".",
-    "tokenEnvironment": "DATA_AGENT_DBT_BRANCH_SERVICE_TOKEN"
-  },
-  "service": {
-    "projectId": "ecommerce_metrics",
-    "repositoryId": "agent-admin/metrics",
-    "subdir": ".",
-    "eventsEnabled": true,
-    "secretEnvironment": "BRANCH_EVENT_SECRET",
-    "tokenEnvironment": "BRANCH_SERVICE_TOKEN",
-    "capabilities": ["branch-development-v1", "draft-validation-v2"]
-  },
-  "platform": { "mode": "service-proxy", "legacyPublisherEnabled": false },
-  "hooks": [{
-    "active": true,
-    "url": "http://host.docker.internal:8000/internal/git-branch-events",
-    "events": ["push", "delete"],
-    "secretEnvironment": "BRANCH_EVENT_SECRET"
-  }]
+  "agentBaseUrl": "http://127.0.0.1:8080",
+  "metricPlatformBaseUrl": "http://127.0.0.1:8090",
+  "dbtServiceBaseUrl": "http://127.0.0.1:8000",
+  "agentProjectId": "填入已配置的Agent项目ID",
+  "repository": "ssh://git@agent-metrics-git/agent-admin/metrics.git",
+  "branchName": "feature/revenue",
+  "previewBinding": "preview",
+  "previewConfigVersion": "1",
+  "productionBinding": "production",
+  "productionConfigVersion": "1",
+  "dbtServiceTokenEnvironment": "DBT_SERVICE_TOKEN",
+  "platformTokenEnvironment": "METRIC_PLATFORM_ACCESS_TOKEN"
 }

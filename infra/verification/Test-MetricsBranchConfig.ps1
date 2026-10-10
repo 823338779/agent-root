@@ -1,49 +1,71 @@
-param([string] $ConfigPath, [switch] $SelfTest)
-
+param([string] $ConfigPath, [switch] $SelfTest, [switch] $Preflight)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'MetricsBranchConfig.ps1')
-
 if (!$SelfTest) {
     if (!$ConfigPath) { throw '必须提供 ConfigPath，或使用 SelfTest 运行隔离配置测试' }
     $configuration = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
     Assert-MetricsBranchConfig $configuration
-    Write-Output 'PASS：项目、仓库、目录、事件和发布者配置一致。'
+    if ($Preflight) {
+        $result = Test-MetricsContractPreflight $configuration
+        if (!$result.Valid) { throw ('协议预检失败：' + ($result.Errors -join '；')) }
+    }
+    Write-Output 'PASS：新构建协议配置有效。'
     exit 0
 }
-
-# fixture 仅存在内存；实际凭据不写入配置文件，也不输出到测试日志。
-$fixtureSecret = [Guid]::NewGuid().ToString('N')
-$env:METRICS_BRANCH_TEST_SECRET = $fixtureSecret
+# fixture 仅存在内存；禁止把令牌写到文件、URL 或失败诊断。
+$secret = [Guid]::NewGuid().ToString('N')
+$env:METRICS_CONTRACT_TEST_TOKEN = $secret
 try {
     $good = @{
-        agent = @{ projectId = 'metrics'; repositoryId = 'agent-admin/metrics'; subdir = '.'; tokenEnvironment = 'METRICS_BRANCH_TEST_SECRET' }
-        service = @{ projectId = 'metrics'; repositoryId = 'agent-admin/metrics'; subdir = '.'; eventsEnabled = $true; secretEnvironment = 'METRICS_BRANCH_TEST_SECRET'; tokenEnvironment = 'METRICS_BRANCH_TEST_SECRET'; capabilities = @('branch-development-v1', 'draft-validation-v2') }
-        platform = @{ mode = 'service-proxy'; legacyPublisherEnabled = $false }
-        hooks = @(@{ active = $true; url = 'http://host.docker.internal:8081/internal/git-branch-events'; events = @('push', 'delete'); secretEnvironment = 'METRICS_BRANCH_TEST_SECRET' })
+        agentBaseUrl='http://127.0.0.1:8080'; metricPlatformBaseUrl='http://127.0.0.1:8090'; dbtServiceBaseUrl='http://127.0.0.1:8000'
+        agentProjectId='project-1'; repository='ssh://git@agent-metrics-git/agent-admin/metrics.git'; branchName='feature/revenue'
+        previewBinding='preview'; previewConfigVersion='1'; productionBinding='production'; productionConfigVersion='1'
+        dbtServiceTokenEnvironment='METRICS_CONTRACT_TEST_TOKEN'; platformTokenEnvironment='METRICS_CONTRACT_TEST_TOKEN'
     }
     Assert-MetricsBranchConfig $good
     $cases = @(
-        @{ name = '旧平台 Webhook'; mutate = { param($c) $c.hooks[0].url = 'http://host.docker.internal:8090/api/git/webhook' }; error = 'hooks' },
-        @{ name = '两个发布者'; mutate = { param($c) $c.platform.legacyPublisherEnabled = $true }; error = 'legacyPublisherEnabled' },
-        @{ name = '错误项目'; mutate = { param($c) $c.agent.projectId = 'other' }; error = 'projectId' },
-        @{ name = '一致但错误的业务仓库'; mutate = { param($c) $c.agent.repositoryId = 'test/metrics'; $c.service.repositoryId = 'test/metrics' }; error = 'repositoryId' },
-        @{ name = '错误目录'; mutate = { param($c) $c.agent.subdir = 'other' }; error = 'subdir' },
-        @{ name = '缺少 Secret'; mutate = { param($c) $c.service.secretEnvironment = 'METRICS_BRANCH_MISSING_SECRET' }; error = 'secretEnvironment' },
-        @{ name = '重复事件目标'; mutate = { param($c) $c.hooks += $c.hooks[0] }; error = 'hooks' }
+        @{ name='旧项目子目录'; mutate={param($c) $c.projectSubdir='.'}; error='projectSubdir' },
+        @{ name='旧服务分支身份'; mutate={param($c) $c.branchId='opaque-old'}; error='branchId' },
+        @{ name='旧代理模式'; mutate={param($c) $c.mode='service-proxy'}; error='mode' },
+        @{ name='缺少preview版本'; mutate={param($c) $c.Remove('previewConfigVersion')}; error='previewConfigVersion' },
+        @{ name='缺少正式版本'; mutate={param($c) $c.Remove('productionConfigVersion')}; error='productionConfigVersion' },
+        @{ name='缺少仓库不兜底'; mutate={param($c) $c.Remove('repository')}; error='repository' },
+        @{ name='凭据嵌入URL'; mutate={param($c) $c.agentBaseUrl='http://user:password@example.test'}; error='agentBaseUrl' },
+        @{ name='预览禁止main'; mutate={param($c) $c.branchName='main'}; error='branchName' },
+        @{ name='自动发布hook'; mutate={param($c) $c.hooks=@(@{active=$true})}; error='hooks' },
+        @{ name='令牌环境缺失'; mutate={param($c) $c.dbtServiceTokenEnvironment='METRICS_CONTRACT_MISSING_TOKEN'}; error='dbtServiceTokenEnvironment' }
     )
     foreach ($case in $cases) {
         $copy = $good | ConvertTo-Json -Depth 8 | ConvertFrom-Json -AsHashtable
-        & $case.mutate $copy
-        $caught = $false
+        & $case.mutate $copy | Out-Null
+        $caught=$false
         try { Assert-MetricsBranchConfig $copy } catch {
-            $caught = $true
-            if ($_.Exception.Message -notmatch $case.error -or $_.Exception.Message.Contains($fixtureSecret)) {
+            $caught=$true
+            if ($_.Exception.Message -notmatch $case.error -or $_.Exception.Message.Contains($secret)) {
                 throw "错误诊断不符合约束：$($case.name)"
             }
         }
         if (!$caught) { throw "预期配置被拒绝：$($case.name)" }
     }
-    Write-Output 'PASS：有效配置及 7 个错误配置 fixture，无凭据输出。'
-} finally {
-    Remove-Item Env:METRICS_BRANCH_TEST_SECRET
-}
+    # 缺少实际schema时必须无效，不允许以健康检查200代替协议检查。
+    $calls=[Collections.Generic.List[string]]::new()
+    $reader={ param($url,$headers) $calls.Add($url); return @{status='UP'} }.GetNewClosure()
+    $observed=Test-MetricsContractPreflight $good $reader
+    if ($observed.Valid -or @($calls | Where-Object {$_ -match '/v[12]/projects|/publication'}).Count) {
+        throw '旧/未知schema不能通过预检或回退旧路由'
+    }
+    # 与三端公开路径匹配的schema才通过；只模拟预检读取，不替代真实闭环。
+    $validReader={param($url,$headers)
+        if($url.EndsWith('/development-config')){return $good}
+        if($url -match '/health(?:/ready)?$'){return @{status='UP'}}
+        $paths=@{}
+        foreach($path in @('/v3/builds','/v3/deployments/current','/v3/builds/{build_id}/queries',
+            '/api/v1/agent-sessions/{sessionId}/development/save','/api/v1/agent-sessions/{sessionId}/development/preview',
+            '/api/v1/agent-sessions/{sessionId}/development/deliver','/api/v3/dbt/builds/{buildId}/catalog','/api/v3/dbt/builds/{buildId}/queries')){$paths[$path]=@{}}
+        return @{protocolVersion='build-deployment-v3';paths=$paths}
+    }.GetNewClosure()
+    if(!(Test-MetricsContractPreflight $good $validReader).Valid){throw '匹配三端schema的配置必须通过预检'}
+    $httpShapeReader={param($url,$headers) (&$validReader $url $headers)|ConvertTo-Json -Depth 12|ConvertFrom-Json}.GetNewClosure()
+    if(!(Test-MetricsContractPreflight $good $httpShapeReader).Valid){throw '真实HTTP形态的PSCustomObject schema必须通过预检'}
+    Write-Output "PASS：有效配置、$($cases.Count) 个无效配置以及协议不匹配拒绝，无凭据输出。"
+} finally { Remove-Item Env:METRICS_CONTRACT_TEST_TOKEN }

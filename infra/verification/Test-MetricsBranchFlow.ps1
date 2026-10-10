@@ -1,113 +1,182 @@
 param(
-    [Parameter(Mandatory)][uri] $ServiceBaseUri,
-    [Parameter(Mandatory)][uri] $PlatformBaseUri,
-    [Parameter(Mandatory)][uri] $AgentBaseUri,
-    [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_-]{1,100}$')][string] $ProjectId,
-    [Parameter(Mandatory)][guid] $BranchAId,
-    [Parameter(Mandatory)][guid] $BranchBId,
-    [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string] $ExpectedProductionSha,
-    [Parameter(Mandatory)][string] $OutputDirectory
+    [Parameter(Mandatory)][string] $ConfigPath,
+    [ValidateRange(30,3600)][int] $TimeoutSeconds=600,
+    [string] $OutputDirectory,
+    [string] $ComparisonConfigPath,
+    [ValidatePattern('^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$')][string] $ModelDirectory='models'
 )
-
-$ErrorActionPreference = 'Stop'
-$checks = [Collections.Generic.List[object]]::new()
-$identities = [Collections.Generic.List[object]]::new()
-$phase = 'configuration'
-$passed = $false
-
-# 不输出服务响应正文、请求凭据或 SQL，只保留断言名称与结果。
-function Assert-Flow([bool] $Condition, [string] $Name) {
-    $checks.Add(@{ name = $Name; status = $(if ($Condition) { 'PASS' } else { 'FAIL' }) })
-    if (!$Condition) { throw 'assertion_failed' }
+$ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'MetricsBranchConfig.ps1')
+$config=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
+$checks=[Collections.Generic.List[object]]::new()
+$identities=[Collections.Generic.List[object]]::new()
+$scenario='preflight'
+$preflight=$null
+$run=[Guid]::NewGuid().ToString('N')
+function Assert-Flow([bool]$Condition,[string]$Name) {
+    $checks.Add(@{name=$Name;status=$(if($Condition){'PASS'}else{'FAIL'})})
+    if(!$Condition){throw 'assertion_failed'}
 }
-
-function Read-BranchApi([uri] $Base, [string] $Path, [string] $Method = 'GET', [object] $Body = $null, [switch] $Platform) {
-    $headers = @{}
-    if ($Platform) { $headers.Authorization = "Bearer $env:METRIC_PLATFORM_ACCESS_TOKEN" }
-    $arguments = @{ Uri = $Base.AbsoluteUri.TrimEnd('/') + $Path; Method = $Method; Headers = $headers
-        TimeoutSec = 20; MaximumRedirection = 0; SkipHttpErrorCheck = $true }
-    if ($null -ne $Body) { $arguments.ContentType = 'application/json'; $arguments.Body = ConvertTo-Json $Body -Depth 8 -Compress }
-    try { $response = Invoke-WebRequest @arguments } catch { throw 'api_transport_failed' }
-    if ($response.StatusCode -notin @(200, 202)) { throw "api_status_$($response.StatusCode)" }
-    if ($response.RawContentLength -gt 2097152) { throw 'api_response_too_large' }
-    return $response.Content | ConvertFrom-Json
+function Invoke-Flow([string]$Component,[string]$Path,[string]$Method='GET',$Body=$null,[string]$Key=$null) {
+    $base=switch($Component){'agent'{$config.agentBaseUrl}'platform'{$config.metricPlatformBaseUrl}'service'{$config.dbtServiceBaseUrl}}
+    $headers=Get-MetricsContractHeaders $config $Component
+    if($Key){$headers['Idempotency-Key']=$Key}
+    $args=@{Uri=$base.TrimEnd('/')+$Path;Method=$Method;Headers=$headers;TimeoutSec=30;MaximumRedirection=0;SkipHttpErrorCheck=$true}
+    if($null-ne$Body){$args.ContentType='application/json';$args.Body=$Body|ConvertTo-Json -Depth 30 -Compress}
+    try{$response=Invoke-WebRequest @args}catch{throw "${Component}_transport_failed"}
+    if($response.StatusCode -notin @(200,201,202,204)){throw "${Component}_http_$($response.StatusCode)"}
+    if($response.RawContentLength-gt 4194304){throw 'response_too_large'}
+    if($response.Content){return $response.Content|ConvertFrom-Json}
 }
-
-try {
-    foreach ($base in @($ServiceBaseUri, $PlatformBaseUri, $AgentBaseUri)) {
-        Assert-Flow ($base.Scheme -in @('http', 'https') -and !$base.UserInfo -and !$base.Query) 'base_uri'
+function Wait-Flow([scriptblock]$Read,[scriptblock]$Complete,[string]$Name) {
+    $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do{
+        $item=&$Read
+        if(&$Complete $item){return $item}
+        if([DateTime]::UtcNow-ge$deadline){throw "timeout_$Name"}
+        Start-Sleep -Milliseconds 500
+    }while($true)
+}
+function Get-Development([string]$Session){Invoke-Flow agent "/api/v1/agent-sessions/$Session/development"}
+function Wait-Operation([string]$Session,$Operation){
+    $result=Wait-Flow {Invoke-Flow agent "/api/v1/agent-sessions/$Session/development/operations/$($Operation.operationId)"} {
+        param($o) $o.status -cin @('SUCCEEDED','FAILED','BLOCKED')
+    } 'operation'
+    $identities.Add(@{operationId=$result.operationId;status=$result.status;phase=$result.phase;errorCode=$result.error.code;pushedSha=$result.pushedSha;mergeSha=$result.mergeSha;buildIds=$result.buildIds})
+    return $result
+}
+# 编辑必须经过正常消息和文件工具；不调用测试专用生产写入口。
+function Edit-ThroughMessage([string]$Session,[string]$Path,[string]$Content,[string]$Type='CREATE') {
+    $before=Get-Development $Session
+    $instruction="读取git-repository-maintenance技能。仅在当前固定开发会话中执行文件编辑，不保存、不预览、不交付。操作类型 $Type，工程相对路径 $Path。读取当前文件列表/内容和修订，使用git_files_apply及正确expectedRevision。"
+    if($Type-ne'DELETE'){$instruction+=" 文件完整内容（不要改写）：`n$Content"}
+    Invoke-Flow agent "/api/v1/agent-sessions/$Session/messages" POST @{content=$instruction} ([Guid]::NewGuid().ToString())|Out-Null
+    $view=Wait-Flow {Invoke-Flow agent "/api/v1/agent-sessions/$Session"} {param($v)$v.execution.status -cin @('done','failed','cancelled')} 'agent_edit'
+    Assert-Flow ($view.execution.status-ceq'done') 'file_tool_execution_succeeded'
+    $after=Get-Development $Session
+    Assert-Flow ($after.local.revision-gt$before.local.revision) 'file_revision_advanced'
+    if($Type-ne'DELETE'){
+        $file=Invoke-Flow agent ("/api/v1/agent-sessions/$Session/development/file?path="+[Uri]::EscapeDataString($Path))
+        Assert-Flow ($file.content-ceq$Content) 'full_file_bytes_preserved'
     }
-    Assert-Flow (![string]::IsNullOrWhiteSpace($env:METRIC_PLATFORM_ACCESS_TOKEN)) 'platform_access_token_present'
-    Assert-Flow ($BranchAId -ne $BranchBId) 'distinct_preview_branches'
-    $serviceRoot = "/v2/projects/$ProjectId/branches"
-    $platformRoot = "/api/v2/semantic-projects/$ProjectId/branches"
-    $phase = 'branches'
-    $serviceBranches = @(Read-BranchApi $ServiceBaseUri $serviceRoot)
-    $platformBranches = @(Read-BranchApi $PlatformBaseUri $platformRoot -Platform)
-    $agentBranches = @(Read-BranchApi $AgentBaseUri '/api/v1/metric-branches')
-    $production = @($serviceBranches | Where-Object mode -eq 'PRODUCTION')
-    Assert-Flow ($production.Count -eq 1) 'one_production_branch'
-    $ids = @($production[0].branchId, $BranchAId.ToString(), $BranchBId.ToString())
-    # main 不能作为开发分支参数，否则重复检查同一分支会产生三分支通过的假证据。
-    Assert-Flow (@($ids | Select-Object -Unique).Count -eq 3) 'three_distinct_branch_ids'
-    foreach ($id in $ids) {
-        $phase = 'branch_identity'
-        $branch = @($serviceBranches | Where-Object branchId -eq $id)
-        Assert-Flow ($branch.Count -eq 1 -and $branch[0].projectId -ceq $ProjectId -and $branch[0].status -ceq 'ACTIVE') 'registered_active_branch'
-        $expectedMode = if ($id -eq $production[0].branchId) { 'PRODUCTION' } else { 'PREVIEW' }
-        Assert-Flow ($branch[0].mode -ceq $expectedMode) 'branch_environment_mode'
-        foreach ($listing in @(@{ values = $platformBranches }, @{ values = $agentBranches })) {
-            $other = @($listing.values | Where-Object branchId -eq $id)
-            Assert-Flow ($other.Count -eq 1 -and $other[0].gitRef -ceq $branch[0].gitRef -and $other[0].projectId -ceq $ProjectId) 'three_service_branch_identity'
-        }
-        $path = "$serviceRoot/$id"
-        $proxy = "$platformRoot/$id"
-        $publication = Read-BranchApi $ServiceBaseUri "$path/publication"
-        Assert-Flow ($publication.capabilities -contains 'branch-development-v1') 'service_branch_capability'
-        $active = $publication.activePublication
-        Assert-Flow ($null -ne $active -and $active.state -ceq 'PUBLISHED' -and $active.branchId -ceq $id) 'active_release_identity'
-        $release = $active.releaseId
-        if ($id -eq $production[0].branchId) { Assert-Flow ($active.sourceSha -ceq $ExpectedProductionSha) 'production_sha_unchanged' }
-        $identities.Add(@{ projectId = $ProjectId; branchId = $id; releaseId = $release; sourceSha = $active.sourceSha })
-        $phase = 'fixed_catalog'
-        $catalog = Read-BranchApi $ServiceBaseUri "$path/releases/$release/catalog?kind=METRIC&size=200"
-        $proxyCatalog = Read-BranchApi $PlatformBaseUri "$proxy/releases/$release/catalog?kind=METRIC&size=200" -Platform
-        Assert-Flow ($catalog.releaseId -ceq $release -and $proxyCatalog.releaseId -ceq $release) 'fixed_catalog_release'
-        Assert-Flow ($catalog.total -eq @($catalog.resources).Count -and $catalog.total -le 200) 'bounded_complete_metric_catalog'
-        $resourceIds = @($catalog.resources.resourceId | Sort-Object)
-        $proxyIds = @($proxyCatalog.resources.resourceId | Sort-Object)
-        Assert-Flow (($resourceIds -join ',') -ceq ($proxyIds -join ',')) 'proxy_catalog_identity'
-        $metric = @($catalog.resources | Where-Object { $_.capabilities -contains 'QUERY' }) | Select-Object -First 1
-        Assert-Flow ($null -ne $metric) 'queryable_metric_present'
-        $phase = 'fixed_query'
-        $body = @{ releaseId = $release; idempotencyKey = [Guid]::NewGuid().ToString('N'); mode = 'QUERY'; metricResourceIds = @($metric.resourceId); limit = 10 }
-        $receipt = Read-BranchApi $PlatformBaseUri "$proxy/queries" 'POST' $body -Platform
-        # 通过同一协议键从服务恢复原任务，证明代理未改写查询身份。
-        $replay = Read-BranchApi $ServiceBaseUri "$path/queries" 'POST' $body
-        Assert-Flow ($receipt.queryId -ceq $replay.queryId -and $receipt.releaseId -ceq $release) 'same_key_same_query'
-        $deadline = [DateTime]::UtcNow.AddSeconds(180)
-        do {
-            $query = Read-BranchApi $ServiceBaseUri "$path/queries/$($receipt.queryId)"
-            if ($query.state -in @('READY', 'FAILED', 'CANCELLED')) { break }
-            Start-Sleep -Milliseconds 500
-        } while ([DateTime]::UtcNow -lt $deadline)
-        Assert-Flow ($query.state -ceq 'READY' -and $query.releaseId -ceq $release -and $query.branchId -ceq $id) 'query_completed_in_fixed_context'
-        $proxyQuery = Read-BranchApi $PlatformBaseUri "$proxy/queries/$($receipt.queryId)" -Platform
-        Assert-Flow ((ConvertTo-Json $query.rows -Depth 8 -Compress) -ceq (ConvertTo-Json $proxyQuery.rows -Depth 8 -Compress)) 'proxy_query_values_equal_service'
-        if ($branch[0].latestReleaseId -and $branch[0].latestReleaseId -ne $release) {
-            $latest = Read-BranchApi $ServiceBaseUri "$path/releases/$($branch[0].latestReleaseId)"
-            Assert-Flow ($latest.state -ne 'PUBLISHED') 'latest_unpublished_keeps_available_release'
-        }
-    }
-    $passed = $true
-} catch {
-    # 外部异常文本可能包含地址或身份信息，报告只给出固定阶段码。
-    $checks.Add(@{ name = $phase; status = 'FAIL'; reason = '请检查该阶段的服务状态与上方断言，响应正文未记录' })
-} finally {
-    New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
-    $report = @{ passed = $passed; scope = '已存在的 main/A/B 三服务目录与查询一致性；不代表 A01-A18 全部验收'
-        identities = @($identities.ToArray()); checks = @($checks.ToArray()); recordedAt = [DateTime]::UtcNow.ToString('o') }
-    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $OutputDirectory 'branch-flow.json') -Encoding utf8
 }
-if (!$passed) { Write-Error '分支聚合验收失败或必需输入缺失，详见 branch-flow.json' -ErrorAction Continue; exit 1 }
-Write-Output 'PASS：已存在 main/A/B 的三服务目录、固定查询与代理结果一致；完整业务验收仍需 A01-A18 场景证据。'
+function Save-Flow([string]$Session){
+    $state=Get-Development $Session
+    $op=Invoke-Flow agent "/api/v1/agent-sessions/$Session/development/save" POST @{idempotencyKey=[Guid]::NewGuid().ToString();expectedRevision=$state.local.revision;commitMessage='Integration source save'}
+    $saved=Wait-Operation $Session $op
+    Assert-Flow ($saved.status-ceq'SUCCEEDED' -and $saved.pushedSha-match'^[0-9a-f]{40,64}$') 'save_proves_push'
+    return $saved
+}
+function Preview-Flow([string]$Session){
+    $state=Get-Development $Session
+    $op=Invoke-Flow agent "/api/v1/agent-sessions/$Session/development/preview" POST @{idempotencyKey=[Guid]::NewGuid().ToString();expectedRevision=$state.local.revision;commitMessage='Integration preview'}
+    return Wait-Operation $Session $op
+}
+function Query-Flow([string]$BuildId,[hashtable]$Request){
+    $Request.idempotencyKey=[Guid]::NewGuid().ToString()
+    $accepted=Invoke-Flow platform "/api/v3/dbt/builds/$BuildId/queries" POST $Request
+    $query=Wait-Flow {Invoke-Flow platform "/api/v3/dbt/queries/$($accepted.queryId)/status"} {param($q)$q.state-cin@('SUCCEEDED','FAILED','CANCELLED','OUTCOME_UNKNOWN')} 'query'
+    Assert-Flow ($query.state-ceq'SUCCEEDED' -and $query.buildId-ceq$BuildId) 'query_fixed_build_succeeded'
+    $offset=0
+    do{
+        $page=Invoke-Flow platform "/api/v3/dbt/queries/$($query.queryId)/results?offset=$offset&limit=2"
+        Assert-Flow ($page.queryId-ceq$query.queryId -and $page.buildId-ceq$BuildId) 'result_identity'
+        if($Request.mode-ceq'EXPLAIN'){
+            Assert-Flow (![string]::IsNullOrWhiteSpace($page.sql)) 'explain_has_compiled_sql'
+        }elseif($offset-eq 0){
+            Assert-Flow ($page.returnedRows-gt 0 -and @($page.columns).Count-gt 0) 'warehouse_returned_physical_rows'
+        }
+        $next=$page.nextOffset
+        Assert-Flow ($null-eq$next -or $next-gt$offset) 'result_pagination_progress'
+        $offset=$next
+    }while($null-ne$next)
+    $identities.Add(@{queryId=$query.queryId;buildId=$BuildId;mode=$Request.mode})
+}
+try{
+    $preflight=Test-MetricsContractPreflight $config
+    Assert-Flow $preflight.Valid 'new_contract_ready'
+    $scenario='shared_branch_save_preview'
+    $sessions=@(1,2|ForEach-Object{
+        (Invoke-Flow agent '/api/v1/agent-sessions' POST @{title="Contract integration $run $_";projectId=$config.agentProjectId;development=@{projectId=$config.agentProjectId;branchName=$config.branchName}}).conversationSessionId
+    })
+    $a=$sessions[0];$b=$sessions[1]
+    Edit-ThroughMessage $a "macros/flow_a_$run.sql" "{# integration A $run #}`n"
+    Edit-ThroughMessage $b "macros/flow_b_$run.sql" "{# integration B $run #}`n"
+    Save-Flow $a|Out-Null;$save=Save-Flow $b
+    $files=Invoke-Flow agent "/api/v1/agent-sessions/$b/development/files"
+    Assert-Flow ($files.files-contains"macros/flow_a_$run.sql" -and $files.files-contains"macros/flow_b_$run.sql") 'both_sessions_changes_preserved'
+    $preview=Preview-Flow $b
+    Assert-Flow ($preview.status-ceq'SUCCEEDED') 'preview_operation_completed'
+    $build=Invoke-Flow service "/v3/builds/$($preview.buildIds[-1])"
+    Assert-Flow ($build.commitSha-ceq$save.pushedSha -and $build.environment-ceq'PREVIEW') 'preview_uses_pushed_sha'
+    Assert-Flow ($build.initialDeployment.deploymentStatus-ceq'DEPLOYED') 'preview_deployment_completed'
+    $scenario='fixed_catalog_and_four_modes'
+    $catalog=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/catalog?limit=200"
+    Assert-Flow ($catalog.buildId-ceq$build.buildId) 'catalog_fixed_build'
+    $metric=@($catalog.items|Where-Object kind -eq 'METRIC')[0]
+    $dataset=@($catalog.items|Where-Object {$_.capabilities-contains'PREVIEW'})[0]
+    Assert-Flow ($null-ne$metric -and $null-ne$dataset) 'fixture_has_metric_and_dataset'
+    $options=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/query-options" POST @{idempotencyKey=[Guid]::NewGuid().ToString();metricResourceIds=@($metric.resourceId)}
+    $options=Wait-Flow {Invoke-Flow platform "/api/v3/dbt/query-options/$($options.optionsTaskId)"} {param($o)$o.state-cin@('SUCCEEDED','FAILED','CANCELLED','OUTCOME_UNKNOWN')} 'options'
+    Assert-Flow ($options.state-ceq'SUCCEEDED' -and $options.buildId-ceq$build.buildId) 'options_fixed_build'
+    $dimension=@($options.options|Where-Object {$_.dimensionType-ne'time'})[0]
+    if(!$dimension){$dimension=@($options.options)[0]}
+    Assert-Flow ($null-ne$dimension) 'fixture_has_dimension'
+    foreach($mode in @('QUERY','EXPLAIN','PREVIEW','DIMENSION_VALUES')){
+        $query=@{mode=$mode;metricResourceIds=@($metric.resourceId);groupBy=@();filters=@();orderBy=@();limit=5}
+        if($mode-ceq'PREVIEW'){$query.datasetResourceId=$dataset.resourceId;$query.metricResourceIds=@()}
+        if($mode-ceq'DIMENSION_VALUES'){$query.dimensionOptionId=$dimension.optionId}
+        Query-Flow $build.buildId $query
+    }
+    $scenario='confirmed_delivery'
+    $scope=(Get-Development $b).deliveryScope
+    $delivery=Invoke-Flow agent "/api/v1/agent-sessions/$b/development/deliver" POST @{idempotencyKey=[Guid]::NewGuid().ToString();expectedSourceSha=$scope.expectedSourceSha;expectedMainSha=$scope.expectedMainSha;confirmedScopeDigest=$scope.confirmedScopeDigest}
+    $delivery=Wait-Operation $b $delivery
+    Assert-Flow ($delivery.status-ceq'SUCCEEDED') 'delivery_operation_completed'
+    $production=Invoke-Flow service "/v3/builds/$($delivery.buildIds[-1])"
+    Assert-Flow ($production.commitSha-ceq$delivery.mergeSha -and $production.environment-ceq'PRODUCTION') 'production_uses_merge_sha'
+    Assert-Flow ($production.buildId-cne$build.buildId -and $production.initialDeployment.deploymentStatus-ceq'DEPLOYED') 'independent_production_deployed'
+    # 历史构建查询仍固定预览身份，不随正式部署切换。
+    Query-Flow $build.buildId @{mode='QUERY';metricResourceIds=@($metric.resourceId);groupBy=@();filters=@();orderBy=@();limit=5}
+    $scenario='invalid_yaml_preserves_deployment'
+    Edit-ThroughMessage $b "$ModelDirectory/invalid_$run.yml" 'invalid: ['
+    Save-Flow $b|Out-Null
+    $invalid=Preview-Flow $b
+    Assert-Flow ($invalid.status-ceq'FAILED') 'invalid_yaml_build_failed_after_save'
+    $current=(Get-Development $b).currentDeployment
+    Assert-Flow ($current.activeBuildId-ceq$build.buildId) 'failed_build_keeps_old_deployment'
+    Edit-ThroughMessage $b "$ModelDirectory/invalid_$run.yml" '' DELETE
+    Save-Flow $b|Out-Null
+    $scenario='new_deployment_keeps_historical_query'
+    $secondPreview=Preview-Flow $b
+    Assert-Flow ($secondPreview.status-ceq'SUCCEEDED' -and $secondPreview.buildIds[-1]-cne$build.buildId) 'second_preview_is_independent_build'
+    $current=(Get-Development $b).currentDeployment
+    Assert-Flow ($current.activeBuildId-ceq$secondPreview.buildIds[-1]) 'second_preview_is_current'
+    Query-Flow $build.buildId @{mode='QUERY';metricResourceIds=@($metric.resourceId);groupBy=@();filters=@();orderBy=@();limit=5}
+    $scenario='undeployed_branch_has_no_main_fallback'
+    $newBranch="feature/unbuilt-$run"
+    Invoke-Flow agent "/api/v1/agent-projects/$($config.agentProjectId)/branches" POST @{branchName=$newBranch;idempotencyKey=[Guid]::NewGuid().ToString()}|Out-Null
+    Wait-Flow {Invoke-Flow agent "/api/v1/agent-projects/$($config.agentProjectId)/branches"} {param($page)@($page.items|Where-Object branchName -CEQ $newBranch).Count-eq 1} 'branch_creation'|Out-Null
+    $unbuilt=Invoke-Flow platform ("/api/v3/dbt/deployments/current?repository="+[Uri]::EscapeDataString($config.repository)+"&branchName="+[Uri]::EscapeDataString($newBranch)+"&environment=PREVIEW")
+    Assert-Flow ($null-eq$unbuilt.activeBuildId) 'undeployed_branch_is_empty'
+    if($ComparisonConfigPath){
+        $scenario='same_branch_across_repositories'
+        $comparison=Get-Content -LiteralPath $ComparisonConfigPath -Raw|ConvertFrom-Json -AsHashtable
+        $comparisonPreflight=Test-MetricsContractPreflight $comparison
+        Assert-Flow ($comparisonPreflight.Valid -and $comparison.repository-cne$config.repository -and $comparison.branchName-ceq$config.branchName) 'comparison_repository_explicit'
+        # 两个仓库同名分支、相同平台实例，第二仓库必须保持自身未部署事实。
+        Assert-Flow ($comparison.metricPlatformBaseUrl-ceq$config.metricPlatformBaseUrl) 'same_platform_for_isolation'
+        $isolated=Invoke-Flow platform ("/api/v3/dbt/deployments/current?repository="+[Uri]::EscapeDataString($comparison.repository)+"&branchName="+[Uri]::EscapeDataString($comparison.branchName)+"&environment=PREVIEW")
+        Assert-Flow ($null-eq$isolated.activeBuildId -and $isolated.repository-ceq$comparison.repository) 'same_branch_repository_isolated'
+    }
+    $result=@{scenario='main_flow';status='PASS';evidence=@{protocolVersion='build-deployment-v3';assertions=@($checks);identities=@($identities)}}
+}catch{
+    # 故障只输出步骤与稳定断言，不输出响应/正文/凭据。
+    $code=$_.Exception.Message
+    if($code-notmatch'^(assertion_failed|[a-z]+_(transport_failed|http_[0-9]{3})|response_too_large|timeout_[a-z_]+)$'){$code='unexpected_response'}
+    $result=@{scenario=$scenario;status='FAIL';evidence=@{errorCode=$code;preflightErrors=$preflight.Errors;assertions=@($checks);identities=@($identities)}}
+}
+$json=$result|ConvertTo-Json -Depth 15
+if($OutputDirectory){[IO.Directory]::CreateDirectory($OutputDirectory)|Out-Null;$json|Set-Content -Encoding utf8 (Join-Path $OutputDirectory 'flow-result.json')}
+$json
+if($result.status-ne'PASS'){exit 1}

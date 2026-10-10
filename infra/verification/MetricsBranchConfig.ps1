@@ -1,44 +1,78 @@
-# 本工作区唯一受控指标仓库；会话和分支不能改变业务仓库身份。
-$MetricsRepositoryId = 'agent-admin/metrics'
-
-# 部署清单只保存业务身份与环境变量名，凭据始终从当前受控进程读取。
+# 配套部署清单只有新版协议身份；不推断仓库，不执行网络或写操作。
 function Get-MetricsBranchCredential([string] $Name, [string] $Field) {
     if (!$Name -or $Name -notmatch '^[A-Z][A-Z0-9_]+$') { throw "配置缺失：$Field" }
-    $value = [Environment]::GetEnvironmentVariable($Name)
+    $value=[Environment]::GetEnvironmentVariable($Name)
     if ([string]::IsNullOrWhiteSpace($value)) { throw "配置缺失：$Field" }
     return $value
 }
-
-# 严格比较显式仓库业务身份，避免 SSH/HTTP 不同传输地址造成伪差异。
 function Assert-MetricsBranchConfig([hashtable] $Configuration) {
-    if ($Configuration.service.repositoryId -cne $MetricsRepositoryId) {
-        throw 'service.repositoryId 必须为 agent-admin/metrics'
+    $required=@('agentBaseUrl','metricPlatformBaseUrl','dbtServiceBaseUrl','agentProjectId','repository','branchName',
+        'previewBinding','previewConfigVersion','productionBinding','productionConfigVersion',
+        'dbtServiceTokenEnvironment','platformTokenEnvironment')
+    $allowed=$required+@('agentTokenEnvironment')
+    foreach ($key in $Configuration.Keys) {
+        if ($key -cnotin $allowed) { throw "不接受旧配置或未知字段：$key" }
     }
-    foreach ($field in @('projectId', 'repositoryId', 'subdir')) {
-        if (!$Configuration.service[$field] -or $Configuration.agent[$field] -cne $Configuration.service[$field]) {
-            throw "agent/service 配置不一致：$field"
+    foreach ($field in $required) {
+        if ($Configuration[$field] -isnot [string] -or [string]::IsNullOrWhiteSpace($Configuration[$field])) { throw "配置缺失：$field" }
+    }
+    foreach ($field in @('agentBaseUrl','metricPlatformBaseUrl','dbtServiceBaseUrl')) {
+        $uri=$null
+        if (![Uri]::TryCreate($Configuration[$field],[UriKind]::Absolute,[ref]$uri) -or
+            $uri.Scheme -notin @('http','https') -or $uri.UserInfo -or $uri.Query -or $uri.Fragment) { throw "无效服务地址：$field" }
+    }
+    if ($Configuration.branchName -ceq 'main' -or $Configuration.branchName -match '^refs/|^[-/]|[\x00-\x20~^:?*\[\\]|\.\.|@\{|[/.]$') {
+        throw 'branchName 必须为非 main 的真实 Git 短分支名'
+    }
+    foreach ($field in @('dbtServiceTokenEnvironment','platformTokenEnvironment','agentTokenEnvironment')) {
+        if ($Configuration.ContainsKey($field)) { Get-MetricsBranchCredential $Configuration[$field] $field | Out-Null }
+    }
+}
+# Header只由组件自己的配置生成；不复用上游或其他服务凭据。
+function Get-MetricsContractHeaders([hashtable] $Configuration, [string] $Component) {
+    $field=switch ($Component) { 'agent' {'agentTokenEnvironment'} 'platform' {'platformTokenEnvironment'} 'service' {'dbtServiceTokenEnvironment'} default {throw '未知组件'} }
+    $headers=@{Accept='application/json'}
+    if ($Configuration[$field]) { $headers.Authorization='Bearer '+(Get-MetricsBranchCredential $Configuration[$field] $field) }
+    return $headers
+}
+function Invoke-MetricsContractRead([string] $Url,[hashtable] $Headers) {
+    try { return Invoke-RestMethod -Uri $Url -Headers $Headers -Method Get -TimeoutSec 20 -MaximumRedirection 0 }
+    catch { throw '服务读取失败，检查对应组件的网络、身份及协议版本' }
+}
+# 仅GET预检；任何组件缺少新版路径或固定配置不一致都禁止闭环写入。
+function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] $Read={param($u,$h) Invoke-MetricsContractRead $u $h}) {
+    Assert-MetricsBranchConfig $Configuration
+    $errors=[Collections.Generic.List[string]]::new()
+    $specs=@(
+        @{name='service';base=$Configuration.dbtServiceBaseUrl;health='/health/ready';schema='/openapi.json';paths=@('/v3/builds','/v3/deployments/current','/v3/builds/{build_id}/queries')},
+        @{name='agent';base=$Configuration.agentBaseUrl;health='/actuator/health';schema='/api/v1/development/contract';paths=@('/api/v1/agent-sessions/{sessionId}/development/save','/api/v1/agent-sessions/{sessionId}/development/preview','/api/v1/agent-sessions/{sessionId}/development/deliver')},
+        @{name='platform';base=$Configuration.metricPlatformBaseUrl;health='/actuator/health';schema='/api/v3/dbt/contract';paths=@('/api/v3/dbt/builds/{buildId}/catalog','/api/v3/dbt/builds/{buildId}/queries')}
+    )
+    foreach ($component in $specs) {
+        try {
+            $headers=Get-MetricsContractHeaders $Configuration $component.name
+            $base=$component.base.TrimEnd('/')
+            $health=& $Read ($base+$component.health) $headers
+            if (!$health -or $health.status -notin @('UP','ready','ok')) { throw '健康状态未就绪' }
+            $schema=& $Read ($base+$component.schema) $headers
+            if ($component.name -ne 'service' -and $schema.protocolVersion -cne 'build-deployment-v3') { throw '协议版本不匹配' }
+            foreach ($path in $component.paths) {
+                $hasPath=$false
+                if($schema.paths -is [System.Collections.IDictionary]){
+                    $hasPath=$schema.paths.Keys -ccontains $path
+                }elseif($schema.paths){
+                    $hasPath=$schema.paths.PSObject.Properties.Name -ccontains $path
+                }
+                if(!$hasPath){throw '缺少新版schema路径'}
+            }
+        } catch { $errors.Add($component.name+': 健康或新版 schema 不匹配') }
+    }
+    try {
+        $path=$Configuration.agentBaseUrl.TrimEnd('/')+'/api/v1/agent-projects/'+[Uri]::EscapeDataString($Configuration.agentProjectId)+'/development-config'
+        $config=& $Read $path (Get-MetricsContractHeaders $Configuration 'agent')
+        foreach ($field in @('repository','previewBinding','previewConfigVersion','productionBinding','productionConfigVersion')) {
+            if ($config.$field -cne $Configuration[$field]) { throw '配置不匹配' }
         }
-    }
-    if ($Configuration.platform.mode -cne 'service-proxy') { throw 'platform.mode 必须为 service-proxy' }
-    if ($Configuration.platform.legacyPublisherEnabled -ne $false) { throw 'platform.legacyPublisherEnabled 必须停用' }
-    if ($Configuration.service.eventsEnabled -ne $true) { throw 'service.eventsEnabled 必须启用补偿扫描' }
-    foreach ($capability in @('branch-development-v1', 'draft-validation-v2')) {
-        if ($Configuration.service.capabilities -cnotcontains $capability) { throw "service.capabilities 缺少 $capability" }
-    }
-
-    # 只允许一个活动发布通知，且 push/delete 均交由服务核实实际远端。
-    $hooks = @($Configuration.hooks | Where-Object { $_.active })
-    if ($hooks.Count -ne 1) { throw 'hooks 必须只有一个活动发布目标' }
-    $uri = $null
-    if (![Uri]::TryCreate($hooks[0].url, [UriKind]::Absolute, [ref] $uri) -or
-        $uri.Scheme -notin @('http', 'https') -or $uri.AbsolutePath -cne '/internal/git-branch-events' -or $uri.Query -or $uri.UserInfo) {
-        throw 'hooks.url 必须指向服务 /internal/git-branch-events'
-    }
-    if ($hooks[0].events -notcontains 'push' -or $hooks[0].events -notcontains 'delete') { throw 'hooks.events 缺少 push/delete' }
-    $secret = Get-MetricsBranchCredential $Configuration.service.secretEnvironment 'service.secretEnvironment'
-    $hookSecret = Get-MetricsBranchCredential $hooks[0].secretEnvironment 'hooks.secretEnvironment'
-    if ($secret -cne $hookSecret) { throw 'hooks.secretEnvironment 与 service.secretEnvironment 不一致' }
-    $serviceToken = Get-MetricsBranchCredential $Configuration.service.tokenEnvironment 'service.tokenEnvironment'
-    $agentToken = Get-MetricsBranchCredential $Configuration.agent.tokenEnvironment 'agent.tokenEnvironment'
-    if ($serviceToken -cne $agentToken) { throw 'agent.tokenEnvironment 与 service.tokenEnvironment 不一致' }
+    } catch { $errors.Add('agent: 项目仓库或环境配置版本不匹配') }
+    return @{Valid=($errors.Count -eq 0);Errors=@($errors)}
 }
