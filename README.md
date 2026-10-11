@@ -225,26 +225,25 @@ git diff --ignore-submodules=none
 ```powershell
 pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchConfig.ps1 -SelfTest
 pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchRegression.ps1 -SelfTest
+.\dbt-metricflow-service\.venv\Scripts\python.exe -B -X utf8 .\infra\verification\Test-DbtConsumerContracts.py
 pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchConfig.ps1 -ConfigPath <本机配置.json> -Preflight
 pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchFlow.ps1 -ConfigPath <隔离测试配置.json>
 pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchRegression.ps1 -ConfigPath <隔离测试配置.json>
 pwsh -NoProfile -File .\infra\git\Test-GitService.ps1
 # 使用已构建的三端产物自动创建并清理隔离环境（Windows）。
 .\dbt-metricflow-service\.venv\Scripts\python.exe .\infra\verification\Invoke-IsolatedMetricsBranchFlow.py
-# 在独立备份副本执行历史迁移、重复迁移及三端查询归因对账。
-.\dbt-metricflow-service\.venv\Scripts\python.exe -X utf8 .\infra\verification\Invoke-IsolatedMetricsMigration.py
 ```
 
-配置结构见 [示例](infra/verification/metrics-branch-config.example.json)。先在Agent项目配置规范仓库及两套环境绑定/版本；服务侧执行绑定必须已登记且匹配。凭据只通过命名的环境变量读取；dbt-service进程使用 `SERVICE_TOKEN`，平台的 `DBT_SERVICE_TOKEN` 与Agent的 `DATA_AGENT_DBT_SERVICE_TOKEN` 指向该服务身份。预检同时读取三端健康及实际契约、核对项目配置；失败时不执行任何业务写入。
+配置结构见 [示例](infra/verification/metrics-branch-config.example.json)。先在Agent项目配置规范仓库及两套环境绑定/版本/schema（`previewSchemaName`、`productionSchemaName`）；服务侧执行绑定必须已登记且匹配。凭据只通过命名的环境变量读取；dbt-service进程使用 `SERVICE_TOKEN`，平台的 `DBT_SERVICE_TOKEN` 与Agent的 `DATA_AGENT_DBT_SERVICE_TOKEN` 指向该服务身份。预检同时读取三端健康及实际契约、核对项目配置；失败时不执行任何业务写入。
 
 Flow必须运行在专用仓库/分支、隔离数据库和测试数据仓库中。它通过正常Agent消息调用文件工具，创建两个开发会话，核实Git保存、固定SHA预览、四种查询、实际合并M的正式构建及非法YAML失败保持旧部署。结果仅包含断言和操作/构建/SHA身份，默认输出控制台；可用 `-OutputDirectory` 指向系统临时目录保存结果。Mock自检通过不等于真实三端闭环通过。
 
-`Invoke-IsolatedMetricsBranchFlow.py` 需要 Docker、Java、Git、PowerShell 7、Windows 自带 .NET Framework 编译器、服务的已安装 `.venv` 及两个 Java 产品的可运行 jar。它使用随机容器名、端口、测试凭据和系统临时目录，真实执行 Git、PostgreSQL、Redis、dbt/MetricFlow 和三端 HTTP；模型决策由确定性 Ollama 固件代替，因此不提供模型质量证据。它使用非默认 `analytics` 模型目录，注入 push、merge、build 已受理后响应丢失，重启平台验证历史补拉，并验证同名分支跨仓库隔离。退出会停止自身创建的进程和容器，脱敏结果及诊断保留在输出的系统临时路径；不触碰共享 Compose 实例。单独运行 Flow 时，可用 `-ModelDirectory` 指定隔离工程的模型目录，`-ComparisonConfigPath` 指向同一平台内另一个明确配置的隔离仓库，覆盖同名分支隔离断言。
+`Invoke-IsolatedMetricsBranchFlow.py` 需要 Docker、Java、Git、PowerShell 7、Windows 自带 .NET Framework 编译器、服务的已安装 `.venv` 及两个 Java 产品的可运行 jar。它使用随机容器名、端口、测试凭据和系统临时目录，真实执行 Git、PostgreSQL、Redis、dbt/MetricFlow 和三端 HTTP；模型决策由确定性 Ollama 固件代替，因此不提供模型质量证据。它使用非默认 `analytics` 模型目录，注入 push、merge、build 已受理后响应丢失，重启平台验证从服务实时读取历史，并验证同名分支跨仓库隔离。退出会停止自身创建的进程和容器，脱敏结果及诊断保留在输出的系统临时路径；不触碰共享 Compose 实例。单独运行 Flow 时，可用 `-ModelDirectory` 指定隔离工程的模型目录，`-ComparisonConfigPath` 指向同一平台内另一个明确配置的隔离仓库，覆盖同名分支隔离断言。
 
 初始化Git默认不安装发布webhook。已有实例需要明确执行 `Initialize-GitService.ps1 -DisableLegacyPublishing`，仅停用本链路旧发布地址，保留无关通知；这一操作不自动应用于未知生产实例。开发绑定和候选不会在分支被删后自动重建远端分支。
 
-隔离脚本还会启动独占端口的真实平台浏览器验证，依赖前端已安装的 npm 依赖及 Chrome。它检查查询身份与数据仓库返回值，产物中记录三端版本和 Java 制品 hash；关闭包含登录过程的截图、视频与 trace。Compose Web 镜像通过 `AGENT_PUBLIC_URL` / `METRIC_PLATFORM_PUBLIC_URL` 构建参数注入浏览器跳转地址，自定义域名或端口时应同步配置并重建镜像。
+隔离脚本还会启动独占端口的真实平台浏览器验证，依赖前端已安装的 npm 依赖及 Chrome。它检查固定构建身份与同步查询返回值，产物中记录三端版本和 Java 制品 hash；关闭包含登录过程的截图、视频与 trace。Compose Web 镜像通过 `AGENT_PUBLIC_URL` / `METRIC_PLATFORM_PUBLIC_URL` 构建参数注入浏览器跳转地址，自定义域名或端口时应同步配置并重建镜像。
 
-切换顺序：停旧写入并核实在途任务 → 备份各产品数据库和封存产物 → 在隔离副本执行产品迁移dry-run → 处理来源冲突 → 执行迁移并重复验证稳定ID、封存hash和物理引用 → 先启动新引擎再启调用方 → 三端preflight成功后开放写入。旧Agent未推送文件不迁入数据库，也不删除原工作目录。出现问题先停写，再前向修复或恢复匹配的数据库/产物/二进制备份；不能把新版数据交给旧发布器。
+切换顺序：停旧写入并核实在途任务 → 备份各产品数据库和封存产物 → 使用专用新库执行 dbt-service `init-db` 并登记绑定 → 补齐 Agent 项目的两个环境 schema → 先启动新引擎再启调用方 → 三端 preflight 成功后开放写入。新版服务不提供旧历史迁移或身份映射，`Invoke-IsolatedMetricsMigration.py` 已改为拒绝执行的弃用提示。旧 Agent 未推送文件和旧数据库保留，不删除原工作目录。出现问题先停写，再前向修复或恢复匹配的数据库、产物和二进制备份。固定 schema 下后续构建覆盖同名表，历史 buildId 不代表历史物理数据快照。
 
-三个产品的独立验证命令见各自README。完成配套提交后仍不自动更新根gitlinks；只有明确采用该版本才固定指针。当前迁移演练与验证不代表生产发布。
+三个产品的独立验证命令见各自README。完成配套提交后仍不自动更新根gitlinks；只有明确采用该版本才固定指针。当前隔离验证不代表生产发布。

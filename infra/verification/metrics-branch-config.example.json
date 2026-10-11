@@ -7,8 +7,10 @@
   "branchName": "feature/revenue",
   "previewBinding": "preview",
   "previewConfigVersion": "1",
+  "previewSchemaName": "analytics_preview",
   "productionBinding": "production",
   "productionConfigVersion": "1",
+  "productionSchemaName": "analytics_production",
   "dbtServiceTokenEnvironment": "DBT_SERVICE_TOKEN",
   "platformTokenEnvironment": "METRIC_PLATFORM_ACCESS_TOKEN"
 }

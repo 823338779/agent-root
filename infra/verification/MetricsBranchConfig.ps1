@@ -7,7 +7,7 @@ function Get-MetricsBranchCredential([string] $Name, [string] $Field) {
 }
 function Assert-MetricsBranchConfig([hashtable] $Configuration) {
     $required=@('agentBaseUrl','metricPlatformBaseUrl','dbtServiceBaseUrl','agentProjectId','repository','branchName',
-        'previewBinding','previewConfigVersion','productionBinding','productionConfigVersion',
+        'previewBinding','previewConfigVersion','previewSchemaName','productionBinding','productionConfigVersion','productionSchemaName',
         'dbtServiceTokenEnvironment','platformTokenEnvironment')
     $allowed=$required+@('agentTokenEnvironment')
     foreach ($key in $Configuration.Keys) {
@@ -20,6 +20,10 @@ function Assert-MetricsBranchConfig([hashtable] $Configuration) {
         $uri=$null
         if (![Uri]::TryCreate($Configuration[$field],[UriKind]::Absolute,[ref]$uri) -or
             $uri.Scheme -notin @('http','https') -or $uri.UserInfo -or $uri.Query -or $uri.Fragment) { throw "无效服务地址：$field" }
+    }
+    # schema 直接交给构建接口，必须与服务端固定 schema 的命名约束一致。
+    foreach ($field in @('previewSchemaName','productionSchemaName')) {
+        if ($Configuration[$field] -cnotmatch '^[a-z][a-z0-9_]{0,255}$') { throw "无效schema：$field" }
     }
     if ($Configuration.branchName -ceq 'main' -or $Configuration.branchName -match '^refs/|^[-/]|[\x00-\x20~^:?*\[\\]|\.\.|@\{|[/.]$') {
         throw 'branchName 必须为非 main 的真实 Git 短分支名'
@@ -44,7 +48,7 @@ function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] 
     Assert-MetricsBranchConfig $Configuration
     $errors=[Collections.Generic.List[string]]::new()
     $specs=@(
-        @{name='service';base=$Configuration.dbtServiceBaseUrl;health='/health/ready';schema='/openapi.json';paths=@('/v3/builds','/v3/deployments/current','/v3/builds/{build_id}/queries')},
+        @{name='service';base=$Configuration.dbtServiceBaseUrl;health='/health/ready';schema='/openapi.json';paths=@('/v3/builds','/v3/deployments/current','/v3/query','/v3/query/available-dimensions')},
         @{name='agent';base=$Configuration.agentBaseUrl;health='/actuator/health';schema='/api/v1/development/contract';paths=@('/api/v1/agent-sessions/{sessionId}/development/save','/api/v1/agent-sessions/{sessionId}/development/preview','/api/v1/agent-sessions/{sessionId}/development/deliver')},
         @{name='platform';base=$Configuration.metricPlatformBaseUrl;health='/actuator/health';schema='/api/v3/dbt/contract';paths=@('/api/v3/dbt/builds/{buildId}/catalog','/api/v3/dbt/builds/{buildId}/queries')}
     )
@@ -70,7 +74,7 @@ function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] 
     try {
         $path=$Configuration.agentBaseUrl.TrimEnd('/')+'/api/v1/agent-projects/'+[Uri]::EscapeDataString($Configuration.agentProjectId)+'/development-config'
         $config=& $Read $path (Get-MetricsContractHeaders $Configuration 'agent')
-        foreach ($field in @('repository','previewBinding','previewConfigVersion','productionBinding','productionConfigVersion')) {
+        foreach ($field in @('repository','previewBinding','previewConfigVersion','previewSchemaName','productionBinding','productionConfigVersion','productionSchemaName')) {
             if ($config.$field -cne $Configuration[$field]) { throw '配置不匹配' }
         }
     } catch { $errors.Add('agent: 项目仓库或环境配置版本不匹配') }

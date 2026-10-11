@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory)][string] $ConfigPath,
-    [ValidateRange(30,3600)][int] $TimeoutSeconds=600,
+    [ValidateRange(30,3600)][int] $TimeoutSeconds=1900,
     [string] $OutputDirectory,
     [string] $ComparisonConfigPath,
     [ValidatePattern('^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$')][string] $ModelDirectory='models'
@@ -17,14 +17,16 @@ function Assert-Flow([bool]$Condition,[string]$Name) {
     $checks.Add(@{name=$Name;status=$(if($Condition){'PASS'}else{'FAIL'})})
     if(!$Condition){throw 'assertion_failed'}
 }
-function Invoke-Flow([string]$Component,[string]$Path,[string]$Method='GET',$Body=$null,[string]$Key=$null) {
+function Invoke-Flow([string]$Component,[string]$Path,[string]$Method='GET',$Body=$null,[string]$Key=$null,[int]$ExpectedStatus=0) {
     $base=switch($Component){'agent'{$config.agentBaseUrl}'platform'{$config.metricPlatformBaseUrl}'service'{$config.dbtServiceBaseUrl}}
     $headers=Get-MetricsContractHeaders $config $Component
     if($Key){$headers['Idempotency-Key']=$Key}
-    $args=@{Uri=$base.TrimEnd('/')+$Path;Method=$Method;Headers=$headers;TimeoutSec=30;MaximumRedirection=0;SkipHttpErrorCheck=$true}
+    # 同步目录发现和查询可能包含真实物理执行，使用调用方指定的完整等待预算。
+    $args=@{Uri=$base.TrimEnd('/')+$Path;Method=$Method;Headers=$headers;TimeoutSec=$TimeoutSeconds;MaximumRedirection=0;SkipHttpErrorCheck=$true}
     if($null-ne$Body){$args.ContentType='application/json';$args.Body=$Body|ConvertTo-Json -Depth 30 -Compress}
     try{$response=Invoke-WebRequest @args}catch{throw "${Component}_transport_failed"}
     if($response.StatusCode -notin @(200,201,202,204)){throw "${Component}_http_$($response.StatusCode)"}
+    if($ExpectedStatus -and $response.StatusCode-ne$ExpectedStatus){throw "${Component}_http_$($response.StatusCode)"}
     if($response.RawContentLength-gt 4194304){throw 'response_too_large'}
     if($response.Content){return $response.Content|ConvertFrom-Json}
 }
@@ -73,25 +75,18 @@ function Preview-Flow([string]$Session){
     return Wait-Operation $Session $op
 }
 function Query-Flow([string]$BuildId,[hashtable]$Request){
-    $Request.idempotencyKey=[Guid]::NewGuid().ToString()
-    $accepted=Invoke-Flow platform "/api/v3/dbt/builds/$BuildId/queries" POST $Request
-    $query=Wait-Flow {Invoke-Flow platform "/api/v3/dbt/queries/$($accepted.queryId)/status"} {param($q)$q.state-cin@('SUCCEEDED','FAILED','CANCELLED','OUTCOME_UNKNOWN')} 'query'
-    Assert-Flow ($query.state-ceq'SUCCEEDED' -and $query.buildId-ceq$BuildId) 'query_fixed_build_succeeded'
-    $offset=0
-    do{
-        $page=Invoke-Flow platform "/api/v3/dbt/queries/$($query.queryId)/results?offset=$offset&limit=2"
-        Assert-Flow ($page.queryId-ceq$query.queryId -and $page.buildId-ceq$BuildId) 'result_identity'
-        if($Request.mode-ceq'EXPLAIN'){
-            Assert-Flow (![string]::IsNullOrWhiteSpace($page.sql)) 'explain_has_compiled_sql'
-        }elseif($offset-eq 0){
-            Assert-Flow ($page.returnedRows-gt 0 -and @($page.columns).Count-gt 0) 'warehouse_returned_physical_rows'
-        }
-        $next=$page.nextOffset
-        Assert-Flow ($null-eq$next -or $next-gt$offset) 'result_pagination_progress'
-        $offset=$next
-    }while($null-ne$next)
-    $identities.Add(@{queryId=$query.queryId;buildId=$BuildId;mode=$Request.mode})
+    # 每次 POST 都重新执行，响应即本次完整的有界结果，不读取历史结果。
+    $query=Invoke-Flow platform "/api/v3/dbt/builds/$BuildId/queries" POST $Request -ExpectedStatus 200
+    Assert-Flow ($query.buildId-ceq$BuildId -and $query.mode-ceq$Request.mode) 'query_fixed_build_succeeded'
+    Assert-Flow (@($query.PSObject.Properties.Name|Where-Object {$_-cin@('queryId','state','nextOffset','returnedRows')}).Count-eq 0) 'query_has_no_persistent_identity'
+    if($Request.mode-ceq'EXPLAIN'){
+        Assert-Flow (![string]::IsNullOrWhiteSpace($query.sql)) 'synchronous_explain_has_compiled_sql'
+    }else{
+        Assert-Flow (@($query.columns).Count-gt 0 -and @($query.rows).Count-gt 0) 'synchronous_query_returned_physical_rows'
+    }
+    $identities.Add(@{buildId=$BuildId;mode=$Request.mode;resultTruncated=$query.resultTruncated})
 }
+
 try{
     $preflight=Test-MetricsContractPreflight $config
     Assert-Flow $preflight.Valid 'new_contract_ready'
@@ -116,11 +111,12 @@ try{
     $metric=@($catalog.items|Where-Object kind -eq 'METRIC')[0]
     $dataset=@($catalog.items|Where-Object {$_.capabilities-contains'PREVIEW'})[0]
     Assert-Flow ($null-ne$metric -and $null-ne$dataset) 'fixture_has_metric_and_dataset'
-    $options=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/query-options" POST @{idempotencyKey=[Guid]::NewGuid().ToString();metricResourceIds=@($metric.resourceId)}
-    $options=Wait-Flow {Invoke-Flow platform "/api/v3/dbt/query-options/$($options.optionsTaskId)"} {param($o)$o.state-cin@('SUCCEEDED','FAILED','CANCELLED','OUTCOME_UNKNOWN')} 'options'
-    Assert-Flow ($options.state-ceq'SUCCEEDED' -and $options.buildId-ceq$build.buildId) 'options_fixed_build'
-    $dimension=@($options.options|Where-Object {$_.dimensionType-ne'time'})[0]
-    if(!$dimension){$dimension=@($options.options)[0]}
+    # 选项发现同步返回固定构建和指标集合，不再创建任务或需要幂等键。
+    $options=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/available-dimensions" POST @{metricResourceIds=@($metric.resourceId)} -ExpectedStatus 200
+    Assert-Flow ($options.buildId-ceq$build.buildId -and @($options.metricResourceIds).Count-eq 1 -and $options.metricResourceIds[0]-ceq$metric.resourceId) 'options_fixed_build'
+    Assert-Flow (@($options.PSObject.Properties.Name|Where-Object {$_-cin@('optionsTaskId','state','error')}).Count-eq 0) 'options_has_no_task_state'
+    $dimension=@($options.dimensions|Where-Object {$_.dimensionType-ne'time'})[0]
+    if(!$dimension){$dimension=@($options.dimensions)[0]}
     Assert-Flow ($null-ne$dimension) 'fixture_has_dimension'
     foreach($mode in @('QUERY','EXPLAIN','PREVIEW','DIMENSION_VALUES')){
         $query=@{mode=$mode;metricResourceIds=@($metric.resourceId);groupBy=@();filters=@();orderBy=@();limit=5}

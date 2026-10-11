@@ -23,6 +23,44 @@ if ($script:MetricsCutoverHooks.Count -ne 4 -or @($script:MetricsCutoverHooks | 
     throw '旧发布者未全部停用或误动了无关Webhook'
 }
 & (Join-Path $PSScriptRoot 'Test-MetricsBranchConfig.ps1') -SelfTest
+# 提取真实查询 helper，验证无持久身份的同步结果和 202 拒绝。
+& {
+    $tokens=$null;$errors=$null
+    $flow=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Test-MetricsBranchFlow.ps1'),[ref]$tokens,[ref]$errors)
+    if($errors.Count){throw 'Flow 脚本语法错误'}
+    foreach($name in @('Assert-Flow','Invoke-Flow','Query-Flow')){
+        $definition=$flow.Find({param($node)$node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name-ceq$name},$true)
+        . ([scriptblock]::Create($definition.Extent.Text))
+    }
+    $config=@{metricPlatformBaseUrl='http://fixture'}
+    $TimeoutSeconds=600
+    $checks=[Collections.Generic.List[object]]::new()
+    $identities=[Collections.Generic.List[object]]::new()
+    $requests=[Collections.Generic.List[string]]::new()
+    $responseStatus=200
+    function Get-MetricsContractHeaders {return @{}}
+    function Invoke-WebRequest($Uri,$Method,$Headers,$TimeoutSec,$MaximumRedirection,$SkipHttpErrorCheck,$ContentType,$Body){
+        $requests.Add($Uri)
+        if($TimeoutSec-ne$TimeoutSeconds){throw '同步查询等待预算错误'}
+        $page=@{buildId='build-fixture';mode='QUERY';commitSha=('a'*40);businessTimezone='UTC';normalizedTimeRange=@{startTime=$null;endTime=$null};boundaryPolicy='metricflow_granularity_alignment';sql=$null;columns=@(@{name='value'});rows=@(@(1));resultTruncated=$false}
+        if($Method-ceq'POST' -and $Uri-ceq'http://fixture/api/v3/dbt/builds/build-fixture/queries'){
+            if((($Body|ConvertFrom-Json).PSObject.Properties.Name)-contains'idempotencyKey'){throw '同步查询不接受幂等键'}
+        }else{
+            throw '同步查询不提供轮询或结果分页'
+        }
+        $json=$page|ConvertTo-Json -Depth 8
+        return @{StatusCode=$responseStatus;Content=$json;RawContentLength=$json.Length}
+    }
+    Query-Flow 'build-fixture' @{mode='QUERY'}
+    if($requests.Count-ne 1 -or $identities.Count-ne 1){throw '查询应仅通过一次POST读取完整结果'}
+    Query-Flow 'build-fixture' @{mode='QUERY'}
+    if($requests.Count-ne 2){throw '相同查询再次请求必须重新执行'}
+    # 旧的受理响应即使含有成功字段也不能被误认为同步 HTTP 200。
+    $responseStatus=202
+    $rejected=$false
+    try{Query-Flow 'build-fixture' @{mode='QUERY'}}catch{$rejected=$_.Exception.Message-ceq'platform_http_202'}
+    if(!$rejected){throw '同步查询必须拒绝 HTTP 202'}
+}
 if ($ConfigPath) {
     $configuration=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json -AsHashtable
     Assert-MetricsBranchConfig $configuration
@@ -35,11 +73,17 @@ if ($ConfigPath) {
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v2/projects/retired/validations'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v1/project-runs'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v1/query-jobs'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/query-options/00000000-0000-0000-0000-000000000001'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/queries/00000000-0000-0000-0000-000000000001/status'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/internal/git-branch-events'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/changes'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/queries/00000000-0000-0000-0000-000000000001/results'},
         @{component='agent';base=$configuration.agentBaseUrl;path='/api/v1/git-workspaces'},
         @{component='agent';base=$configuration.agentBaseUrl;path='/api/v1/metric-branches'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v1/semantic-projects'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v2/semantic-projects'},
+        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v3/dbt/query-options/00000000-0000-0000-0000-000000000001'},
+        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v3/dbt/queries/00000000-0000-0000-0000-000000000001/status'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v1/semantic-projects/retired/releases'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v2/semantic-projects/retired/branches'}
     )
@@ -51,9 +95,9 @@ if ($ConfigPath) {
     $branches=Invoke-MetricsContractRead ($configuration.agentBaseUrl.TrimEnd('/')+'/api/v1/agent-projects/'+[Uri]::EscapeDataString($configuration.agentProjectId)+'/branches') (Get-MetricsContractHeaders $configuration 'agent')
     $branch=@($branches.items | Where-Object branchName -CEQ $configuration.branchName)
     if($branch.Count-ne 1){throw '负向协议测试需要明确存在的隔离测试分支'}
-    $invalid=@{repository=$configuration.repository;branchName=$configuration.branchName;commitSha=$branch[0].headSha;environment='PREVIEW';executionBinding=$configuration.previewBinding;configVersion=$configuration.previewConfigVersion;deploymentPolicy='NONE';idempotencyKey=[Guid]::NewGuid().ToString();projectId='retired'} | ConvertTo-Json
+    $invalid=@{repository=$configuration.repository;branchName=$configuration.branchName;commitSha=$branch[0].headSha;environment='PREVIEW';executionBinding=$configuration.previewBinding;configVersion=$configuration.previewConfigVersion;schemaName=$configuration.previewSchemaName;deploymentPolicy='NONE';idempotencyKey=[Guid]::NewGuid().ToString();projectId='retired'} | ConvertTo-Json
     $response=Invoke-WebRequest -Uri ($configuration.dbtServiceBaseUrl.TrimEnd('/')+'/v3/builds') -Method Post -Body $invalid -ContentType 'application/json' -Headers (Get-MetricsContractHeaders $configuration 'service') -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 20
     if ($response.StatusCode -ne 422) {throw '未知旧字段必须返回422'}
     Write-Output 'PASS：真实三端旧路由404及旧字段422。'
 }
-Write-Output 'PASS：发布Webhook退出、自检拒绝main冒充预览、无关通知保留；未传ConfigPath时未执行真实HTTP验证。'
+Write-Output 'PASS：发布Webhook退出、自检拒绝main冒充预览、无关通知保留、查询同步完整结果及202拒绝；未传ConfigPath时未执行真实HTTP验证。'

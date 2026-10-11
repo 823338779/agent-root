@@ -226,7 +226,8 @@ class EngineProxy(BaseHTTPRequestHandler):
         pass
 
     def relay(self):
-        connection = http.client.HTTPConnection("127.0.0.1", serviceport, timeout=30)
+        # 同步查询可能执行完整 MetricFlow 命令，代理不能先于服务中断响应。
+        connection = http.client.HTTPConnection("127.0.0.1", serviceport, timeout=1900)
         body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
         connection.request(self.command, self.path, body, dict(self.headers))
         response = connection.getresponse()
@@ -358,7 +359,7 @@ try:
         "SERVICE_CONFIG_VERSION": "1",
     }
     admin = ROOT / "dbt-metricflow-service/.venv/Scripts/dbt-service-admin.exe"
-    run([admin, "migrate"], env=serviceenv)
+    run([admin, "init-db"], env=serviceenv)
     bindings = WORK / "bindings.json"
     bindings.write_text(
         json.dumps(
@@ -558,8 +559,10 @@ class GitFaultLauncher {
                 "repository": str(repo),
                 "previewBinding": "preview",
                 "previewConfigVersion": "1",
+                "previewSchemaName": "analytics_preview",
                 "productionBinding": "production",
                 "productionConfigVersion": "1",
+                "productionSchemaName": "analytics_production",
                 "expectedVersion": 0,
             }
         ).encode(),
@@ -575,8 +578,10 @@ class GitFaultLauncher {
         "branchName": "feature/integration",
         "previewBinding": "preview",
         "previewConfigVersion": "1",
+        "previewSchemaName": "analytics_preview",
         "productionBinding": "production",
         "productionConfigVersion": "1",
+        "productionSchemaName": "analytics_production",
         "dbtServiceTokenEnvironment": "CONTRACT_ENGINE_TOKEN",
         "platformTokenEnvironment": "CONTRACT_PLATFORM_TOKEN",
     }
@@ -593,8 +598,10 @@ class GitFaultLauncher {
         "repository": str(replica),
         "previewBinding": "preview",
         "previewConfigVersion": "1",
+        "previewSchemaName": "analytics_preview",
         "productionBinding": "production",
         "productionConfigVersion": "1",
+        "productionSchemaName": "analytics_production",
         "expectedVersion": 0,
     }
     urllib.request.urlopen(
@@ -688,7 +695,7 @@ class GitFaultLauncher {
         )
         if len(history["items"]) != 4:
             raise RuntimeError("unexpected_extra_build")
-        # 停止平台期间，Agent及引擎继续独立工作；重启只靠持久changefeed检查点补拉。
+        # 停止平台期间，Agent及引擎继续独立工作；重启后从服务实时读取历史，不依赖changefeed检查点。
         sessions = api(agent, "/api/v1/agent-sessions")
         session = find_key(sessions, "conversationSessionId")
         state = api(agent, f"/api/v1/agent-sessions/{session}/development")
@@ -729,10 +736,10 @@ class GitFaultLauncher {
                 break
             time.sleep(0.5)
         else:
-            raise RuntimeError("platform_history_not_backfilled")
+            raise RuntimeError("platform_history_not_read")
         evidence["evidence"]["faultInjections"] = injections
         evidence["evidence"]["recoveredReceipts"] = receipts
-        evidence["evidence"]["platformRestartBackfilledBuildId"] = operation[
+        evidence["evidence"]["platformRestartObservedBuildId"] = operation[
             "buildIds"
         ][-1]
         evidence["evidence"]["actualComponents"] = [
@@ -771,7 +778,7 @@ class GitFaultLauncher {
         (WORK / "coordinated-result.json").write_text(
             json.dumps(evidence, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-        print("coordinated_faults_and_backfill:PASS", flush=True)
+        print("coordinated_faults_and_live_history:PASS", flush=True)
     # 退出检查只在新版服务预检成功后执行。
     with open(WORK / "regression.log", "w", encoding="utf-8") as log:
         regression = subprocess.run(
