@@ -39,13 +39,11 @@
 
 升级已有栈时追加 `-ReuseInfrastructureSecrets`，仅复用现有 `postgres-password` 与 `redis-password`，不覆盖其值；传入的数据库/Redis 密码必须与它们匹配。其他 secret 若已存在，脚本拒绝覆盖。后续轮换使用新的版本化 secret 名，并明确更新 `stack.yml`。
 
-构建并推送四个镜像。两个公开地址用于浏览器跨产品导航，在 Vite 构建时固化；修改它们必须重建 Web 镜像。
+构建并推送四个镜像。Agent 与指标平台不互相注入公开地址，两者独立连接 dbt-service。
 
 ```powershell
 .\infra\swarm\scripts\Build-And-Push.ps1 `
-  -LocalRegistry '192.168.1.10:5000' -ImageTag release-v3 `
-  -AgentPublicUrl 'http://192.168.1.10:8080' `
-  -MetricPlatformPublicUrl 'http://192.168.1.10:8090'
+  -LocalRegistry '192.168.1.10:5000' -ImageTag release-v3
 ```
 
 配置 Agent 项目的规范 repository、PREVIEW/PRODUCTION binding 与 configVersion，并确认 dbt-service 对应绑定可用后，才开启开发能力。`.env.example` 只作值示例，部署脚本不会自动加载它。

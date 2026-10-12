@@ -39,13 +39,12 @@ try {
     foreach ($configuration in @($agent, $platform)) {
         if ($configuration -notmatch 'http://engine.example:8000' -or $configuration -notmatch 'service-token: "test: token"') { throw '缺少显式 dbt 服务地址或凭据。' }
     }
-    if ($platform -notmatch 'base-uri: http://data-agent-api:8080') { throw '平台缺少 Agent 服务地址。' }
-    & (Join-Path $PSScriptRoot 'Build-And-Push.ps1') -LocalRegistry 'registry.example:5000' -ImageTag test `
-        -AgentPublicUrl 'https://agent.example' -MetricPlatformPublicUrl 'https://metrics.example'
+    if ($platform -match 'data-agent-api') { throw '平台不得依赖 Agent 服务地址。' }
+    & (Join-Path $PSScriptRoot 'Build-And-Push.ps1') -LocalRegistry 'registry.example:5000' -ImageTag test
     $builds = @($script:commands | Where-Object { $_.arguments[0] -eq 'build' })
     if ($builds.Count -ne 4) { throw '未构建四个应用镜像。' }
-    if (@($builds | Where-Object { $_.arguments -contains 'VITE_AGENT_URL=https://agent.example/' }).Count -ne 1 -or
-        @($builds | Where-Object { $_.arguments -contains 'VITE_METRIC_PLATFORM_URL=https://metrics.example/' }).Count -ne 1) { throw 'Web 镜像缺少公开地址构建参数。' }
+    if (@($builds | Where-Object { ($_.arguments -join ' ') -match 'VITE_AGENT_URL|VITE_METRIC_PLATFORM_URL' }).Count -ne 0) { throw 'Web 镜像不得注入跨产品导航地址。' }
+
 } finally {
     Remove-Item Function:\docker
 }

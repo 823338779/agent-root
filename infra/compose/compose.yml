@@ -146,7 +146,6 @@ services:
       SPRING_DATA_REDIS_USERNAME: default
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_local_dev}
       METRIC_PLATFORM_IDENTITY_AUTH_BOOTSTRAP_PASSWORD: ${METRIC_PLATFORM_ADMIN_PASSWORD:-admin}
-      AGENT_BASE_URI: http://data-agent-api:8080
       DBT_SERVICE_BASE_URI: ${DBT_SERVICE_BASE_URI:-http://host.docker.internal:8000}
       DBT_SERVICE_TOKEN: ${DBT_SERVICE_TOKEN:-}
     depends_on:
@@ -186,8 +185,6 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      metric-platform-api:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health/readiness | grep -q UP"]
       interval: 10s
@@ -201,8 +198,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/metric-platform-web.Dockerfile
-      args:
-        VITE_AGENT_URL: ${AGENT_PUBLIC_URL:-http://localhost:8080}
     depends_on:
       metric-platform-api:
         condition: service_healthy
@@ -215,8 +210,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/data-agent-web.Dockerfile
-      args:
-        VITE_METRIC_PLATFORM_URL: ${METRIC_PLATFORM_PUBLIC_URL:-http://localhost:8090}
     depends_on:
       data-agent-api:
         condition: service_healthy

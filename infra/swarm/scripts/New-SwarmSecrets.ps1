@@ -63,8 +63,6 @@ spring:
       username: default
       password: $redisValue
 metric-platform:
-  agent:
-    base-uri: http://data-agent-api:8080
   dbt-runtime:
     base-uri: $dbtUrlValue
     service-token: $dbtTokenValue

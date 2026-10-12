@@ -514,7 +514,6 @@ class GitFaultLauncher {
             "SPRING_DATASOURCE_URL": f"jdbc:postgresql://127.0.0.1:{pgport}/platform",
             "DBT_SERVICE_BASE_URI": service,
             "DBT_SERVICE_TOKEN": TOKEN,
-            "AGENT_BASE_URI": agent,
             "METRIC_PLATFORM_BUILD_HISTORY_POLL_MS": "300",
             "MANAGEMENT_HEALTH_REDIS_ENABLED": "false",
             "METRIC_PLATFORM_IDENTITY_AUTH_BOOTSTRAP_PASSWORD": SECRET,

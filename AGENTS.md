@@ -14,7 +14,7 @@
 ## 跨仓库工作流
 
 - 变更必须放在职责范围最窄的归属仓库中；跨产品需求不代表可以修改两个子仓库中与需求无关的内容。
-- Data Agent V2 需要 Metric Platform 能力时，应在 `metric-platform/` 中实现兼容的 API，再由 `data-agent-v2/` 通过已发布的 HTTP API 调用。严禁跨子仓库导入实现类。
+- Data Agent V2 与 Metric Platform 禁止直接交互，包括 HTTP 调用、跨产品页面跳转及启动依赖。两者分别通过 dbt-service 的公开 HTTP API 完成构建部署或版本查询；严禁跨子仓库导入实现类。
 - 三个子仓库必须保持独立构建。不得添加根目录 Maven reactor 或父 POM。
 - 未经用户明确要求，不得创建提交。如果任务包含固定新的子模块版本，应先提交产品仓库变更；仅当工作区确定采用该版本时，才更新根仓库中的 Git 链接。
 - 根目录 `.gitmodules` 默认隐藏子模块变更。审查时使用 `git status --ignore-submodules=none` 和 `git diff --ignore-submodules=none`。
