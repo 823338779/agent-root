@@ -1,0 +1,5 @@
+# Java 文件统一使用 LF，避免 IDEA 保存后产生纯换行差异。
+root = true
+
+[*.java]
+end_of_line = lf
