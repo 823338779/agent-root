@@ -5,12 +5,38 @@
   "agentProjectId": "填入已配置的Agent项目ID",
   "repository": "ssh://git@agent-metrics-git/agent-admin/metrics.git",
   "branchName": "feature/revenue",
-  "previewBinding": "preview",
-  "previewConfigVersion": "1",
-  "previewSchemaName": "analytics_preview",
-  "productionBinding": "production",
-  "productionConfigVersion": "1",
-  "productionSchemaName": "analytics_production",
   "dbtServiceTokenEnvironment": "DBT_SERVICE_TOKEN",
-  "platformTokenEnvironment": "METRIC_PLATFORM_ACCESS_TOKEN"
+  "platformTokenEnvironment": "METRIC_PLATFORM_ACCESS_TOKEN",
+  "previewExecution": {
+    "environmentId": "12345678-1234-4234-8234-000000000001",
+    "configVersion": 1,
+    "connection": {
+      "type": "starrocks",
+      "instanceId": "warehouse",
+      "host": "localhost",
+      "port": 9030,
+      "path": null
+    },
+    "credentialRef": "warehouse-test",
+    "catalog": "default_catalog",
+    "schema": "analytics_preview",
+    "threads": 2,
+    "businessTimezone": "Asia/Shanghai"
+  },
+  "productionExecution": {
+    "environmentId": "12345678-1234-4234-8234-000000000002",
+    "configVersion": 1,
+    "connection": {
+      "type": "starrocks",
+      "instanceId": "warehouse",
+      "host": "localhost",
+      "port": 9030,
+      "path": null
+    },
+    "credentialRef": "warehouse-test",
+    "catalog": "default_catalog",
+    "schema": "analytics_production",
+    "threads": 2,
+    "businessTimezone": "Asia/Shanghai"
+  }
 }

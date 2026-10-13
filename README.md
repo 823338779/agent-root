@@ -218,7 +218,7 @@ git diff --ignore-submodules=none
 
 ## 新构建协议配套验证与切换
 
-当前开发目标是 `data-agent-v2`、`metric-platform` 和独立的 `dbt-metricflow-service`。引擎统一提供 `/v3`；Agent负责固定会话的保存/预览/交付，指标平台仅消费构建、部署、目录和查询事实。旧版本不能混用，不提供接口回退。
+当前开发目标是 `data-agent-v2`、`metric-platform` 和独立的 `dbt-metricflow-service`。引擎统一提供无版本号的执行快照接口；Agent负责固定会话的保存/预览/交付，指标平台仅消费构建、部署、目录和查询事实。旧版本不能混用，不提供接口回退。
 
 从根目录执行配置自检、真实只读预检、闭环和退出检查：
 
@@ -234,7 +234,7 @@ pwsh -NoProfile -File .\infra\git\Test-GitService.ps1
 .\dbt-metricflow-service\.venv\Scripts\python.exe .\infra\verification\Invoke-IsolatedMetricsBranchFlow.py
 ```
 
-配置结构见 [示例](infra/verification/metrics-branch-config.example.json)。先在Agent项目配置规范仓库及两套环境绑定/版本/schema（`previewSchemaName`、`productionSchemaName`）；服务侧执行绑定必须已登记且匹配。凭据只通过命名的环境变量读取；dbt-service进程使用 `SERVICE_TOKEN`，平台的 `DBT_SERVICE_TOKEN` 与Agent的 `DATA_AGENT_DBT_SERVICE_TOKEN` 指向该服务身份。预检同时读取三端健康及实际契约、核对项目配置；失败时不执行任何业务写入。
+配置结构见 [示例](infra/verification/metrics-branch-config.example.json)。先在Agent项目配置规范仓库及两套完整执行快照（`previewExecution`、`productionExecution`）；服务侧可信物理实例清单和凭据引用必须已配置且匹配。凭据只通过命名的环境变量读取；dbt-service进程使用 `SERVICE_TOKEN`，平台的 `DBT_SERVICE_TOKEN` 与Agent的 `DATA_AGENT_DBT_SERVICE_TOKEN` 指向该服务身份。预检同时读取三端健康及实际契约、核对项目配置；失败时不执行任何业务写入。
 
 Flow必须运行在专用仓库/分支、隔离数据库和测试数据仓库中。它通过正常Agent消息调用文件工具，创建两个开发会话，核实Git保存、固定SHA预览、四种查询、实际合并M的正式构建及非法YAML失败保持旧部署。结果仅包含断言和操作/构建/SHA身份，默认输出控制台；可用 `-OutputDirectory` 指向系统临时目录保存结果。Mock自检通过不等于真实三端闭环通过。
 
@@ -244,6 +244,6 @@ Flow必须运行在专用仓库/分支、隔离数据库和测试数据仓库中
 
 隔离脚本还会启动独占端口的真实平台浏览器验证，依赖前端已安装的 npm 依赖及 Chrome。它检查固定构建身份与同步查询返回值，产物中记录三端版本和 Java 制品 hash；关闭包含登录过程的截图、视频与 trace。Compose Web 镜像通过 `AGENT_PUBLIC_URL` / `METRIC_PLATFORM_PUBLIC_URL` 构建参数注入浏览器跳转地址，自定义域名或端口时应同步配置并重建镜像。
 
-切换顺序：停旧写入并核实在途任务 → 备份各产品数据库和封存产物 → 使用专用新库执行 dbt-service `init-db` 并登记绑定 → 补齐 Agent 项目的两个环境 schema → 先启动新引擎再启调用方 → 三端 preflight 成功后开放写入。新版服务不提供旧历史迁移或身份映射，`Invoke-IsolatedMetricsMigration.py` 已改为拒绝执行的弃用提示。旧 Agent 未推送文件和旧数据库保留，不删除原工作目录。出现问题先停写，再前向修复或恢复匹配的数据库、产物和二进制备份。固定 schema 下后续构建覆盖同名表，历史 buildId 不代表历史物理数据快照。
+启动顺序：配置服务可信实例和凭据环境变量 → 使用空库执行 dbt-service `init-db` → 启动引擎 → 配置 Agent 两套完整执行快照并启动调用方 → 三端 preflight 成功后开放写入。无需兼容旧协议或旧持久化数据。固定 schema 下后续构建覆盖同名表，历史 buildId 不代表历史物理数据快照。
 
 三个产品的独立验证命令见各自README。完成配套提交后仍不自动更新根gitlinks；只有明确采用该版本才固定指针。当前隔离验证不代表生产发布。

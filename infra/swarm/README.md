@@ -1,6 +1,6 @@
 # Docker Swarm 部署
 
-此目录部署 Data Agent V2、指标平台、两个前端及 PostgreSQL/Redis。dbt-service 按自身 README 单独部署；两端统一调用其 `/v3` 协议。所有命令从工作区根目录执行。
+此目录部署 Data Agent V2、指标平台、两个前端及 PostgreSQL/Redis。dbt-service 按自身 README 单独部署；两端统一调用其无版本号执行快照契约。所有命令从工作区根目录执行。
 
 ## 部署前提
 

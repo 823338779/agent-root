@@ -7,9 +7,8 @@ function Get-MetricsBranchCredential([string] $Name, [string] $Field) {
 }
 function Assert-MetricsBranchConfig([hashtable] $Configuration) {
     $required=@('agentBaseUrl','metricPlatformBaseUrl','dbtServiceBaseUrl','agentProjectId','repository','branchName',
-        'previewBinding','previewConfigVersion','previewSchemaName','productionBinding','productionConfigVersion','productionSchemaName',
         'dbtServiceTokenEnvironment','platformTokenEnvironment')
-    $allowed=$required+@('agentTokenEnvironment')
+    $allowed=$required+@('agentTokenEnvironment','previewExecution','productionExecution')
     foreach ($key in $Configuration.Keys) {
         if ($key -cnotin $allowed) { throw "不接受旧配置或未知字段：$key" }
     }
@@ -21,9 +20,19 @@ function Assert-MetricsBranchConfig([hashtable] $Configuration) {
         if (![Uri]::TryCreate($Configuration[$field],[UriKind]::Absolute,[ref]$uri) -or
             $uri.Scheme -notin @('http','https') -or $uri.UserInfo -or $uri.Query -or $uri.Fragment) { throw "无效服务地址：$field" }
     }
-    # schema 直接交给构建接口，必须与服务端固定 schema 的命名约束一致。
-    foreach ($field in @('previewSchemaName','productionSchemaName')) {
-        if ($Configuration[$field] -cnotmatch '^[a-z][a-z0-9_]{0,255}$') { throw "无效schema：$field" }
+    # 完整快照必填；基础设施映射与 secret 是否可用由服务端再次核验。
+    foreach ($field in @('previewExecution','productionExecution')) {
+        $snapshot=$Configuration[$field]
+        $identity=[Guid]::Empty
+        if (!$snapshot -or ![Guid]::TryParse([string]$snapshot.environmentId,[ref]$identity) -or
+            $snapshot.configVersion -lt 1 -or $snapshot.threads -lt 1 -or $snapshot.threads -gt 32) { throw "无效快照：$field" }
+        foreach ($identifier in @('catalog','schema')) {
+            if ($snapshot[$identifier] -cnotmatch '^[a-z][a-z0-9_]{0,62}$') { throw "无效快照：$field.$identifier" }
+        }
+        if (!$snapshot.credentialRef -or !$snapshot.businessTimezone -or !$snapshot.connection.instanceId -or
+            $snapshot.connection.type -notin @('starrocks','postgres','duckdb')) { throw "无效快照：$field" }
+        $allowedSnapshot=@('environmentId','configVersion','connection','credentialRef','catalog','schema','threads','businessTimezone')
+        if (@($snapshot.Keys | Where-Object {$_ -cnotin $allowedSnapshot}).Count) { throw "未知快照字段：$field" }
     }
     if ($Configuration.branchName -ceq 'main' -or $Configuration.branchName -match '^refs/|^[-/]|[\x00-\x20~^:?*\[\\]|\.\.|@\{|[/.]$') {
         throw 'branchName 必须为非 main 的真实 Git 短分支名'
@@ -48,9 +57,9 @@ function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] 
     Assert-MetricsBranchConfig $Configuration
     $errors=[Collections.Generic.List[string]]::new()
     $specs=@(
-        @{name='service';base=$Configuration.dbtServiceBaseUrl;health='/health/ready';schema='/openapi.json';paths=@('/v3/builds','/v3/deployments/current','/v3/query','/v3/query/available-dimensions')},
+        @{name='service';base=$Configuration.dbtServiceBaseUrl;health='/health/ready';schema='/openapi.json';paths=@('/builds','/deployments/current','/query','/query/available-dimensions')},
         @{name='agent';base=$Configuration.agentBaseUrl;health='/actuator/health';schema='/api/v1/development/contract';paths=@('/api/v1/agent-sessions/{sessionId}/development/save','/api/v1/agent-sessions/{sessionId}/development/preview','/api/v1/agent-sessions/{sessionId}/development/deliver')},
-        @{name='platform';base=$Configuration.metricPlatformBaseUrl;health='/actuator/health';schema='/api/v3/dbt/contract';paths=@('/api/v3/dbt/builds/{buildId}/catalog','/api/v3/dbt/builds/{buildId}/queries')}
+        @{name='platform';base=$Configuration.metricPlatformBaseUrl;health='/actuator/health';schema='/api/dbt/contract';paths=@('/api/dbt/builds/{buildId}/catalog','/api/dbt/builds/{buildId}/queries')}
     )
     foreach ($component in $specs) {
         try {
@@ -59,7 +68,7 @@ function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] 
             $health=& $Read ($base+$component.health) $headers
             if (!$health -or $health.status -notin @('UP','ready','ok')) { throw '健康状态未就绪' }
             $schema=& $Read ($base+$component.schema) $headers
-            if ($component.name -ne 'service' -and $schema.protocolVersion -cne 'build-deployment-v3') { throw '协议版本不匹配' }
+            if ($component.name -ne 'service' -and $schema.protocolVersion -cne 'execution-snapshot') { throw '协议版本不匹配' }
             foreach ($path in $component.paths) {
                 $hasPath=$false
                 if($schema.paths -is [System.Collections.IDictionary]){
@@ -74,8 +83,14 @@ function Test-MetricsContractPreflight([hashtable] $Configuration,[scriptblock] 
     try {
         $path=$Configuration.agentBaseUrl.TrimEnd('/')+'/api/v1/agent-projects/'+[Uri]::EscapeDataString($Configuration.agentProjectId)+'/development-config'
         $config=& $Read $path (Get-MetricsContractHeaders $Configuration 'agent')
-        foreach ($field in @('repository','previewBinding','previewConfigVersion','previewSchemaName','productionBinding','productionConfigVersion','productionSchemaName')) {
-            if ($config.$field -cne $Configuration[$field]) { throw '配置不匹配' }
+        if ($config.repository -cne $Configuration.repository) { throw '仓库不匹配' }
+        foreach ($environment in @('previewExecution','productionExecution')) {
+            foreach ($field in @('environmentId','configVersion','credentialRef','catalog','schema','threads','businessTimezone')) {
+                if ($config.$environment.$field -cne $Configuration[$environment][$field]) { throw '执行快照不匹配' }
+            }
+            foreach ($field in @('type','instanceId','host','port','path')) {
+                if ($config.$environment.connection.$field -cne $Configuration[$environment].connection[$field]) { throw '连接快照不匹配' }
+            }
         }
     } catch { $errors.Add('agent: 项目仓库或环境配置版本不匹配') }
     return @{Valid=($errors.Count -eq 0);Errors=@($errors)}

@@ -76,7 +76,7 @@ function Preview-Flow([string]$Session){
 }
 function Query-Flow([string]$BuildId,[hashtable]$Request){
     # 每次 POST 都重新执行，响应即本次完整的有界结果，不读取历史结果。
-    $query=Invoke-Flow platform "/api/v3/dbt/builds/$BuildId/queries" POST $Request -ExpectedStatus 200
+    $query=Invoke-Flow platform "/api/dbt/builds/$BuildId/queries" POST $Request -ExpectedStatus 200
     Assert-Flow ($query.buildId-ceq$BuildId -and $query.mode-ceq$Request.mode) 'query_fixed_build_succeeded'
     Assert-Flow (@($query.PSObject.Properties.Name|Where-Object {$_-cin@('queryId','state','nextOffset','returnedRows')}).Count-eq 0) 'query_has_no_persistent_identity'
     if($Request.mode-ceq'EXPLAIN'){
@@ -102,17 +102,17 @@ try{
     Assert-Flow ($files.files-contains"macros/flow_a_$run.sql" -and $files.files-contains"macros/flow_b_$run.sql") 'both_sessions_changes_preserved'
     $preview=Preview-Flow $b
     Assert-Flow ($preview.status-ceq'SUCCEEDED') 'preview_operation_completed'
-    $build=Invoke-Flow service "/v3/builds/$($preview.buildIds[-1])"
-    Assert-Flow ($build.commitSha-ceq$save.pushedSha -and $build.environment-ceq'PREVIEW') 'preview_uses_pushed_sha'
+    $build=Invoke-Flow service "/builds/$($preview.buildIds[-1])"
+    Assert-Flow ($build.commitSha-ceq$save.pushedSha -and $build.execution.environmentId-ceq$config.previewExecution.environmentId) 'preview_uses_pushed_sha'
     Assert-Flow ($build.initialDeployment.deploymentStatus-ceq'DEPLOYED') 'preview_deployment_completed'
     $scenario='fixed_catalog_and_four_modes'
-    $catalog=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/catalog?limit=200"
+    $catalog=Invoke-Flow platform "/api/dbt/builds/$($build.buildId)/catalog?limit=200"
     Assert-Flow ($catalog.buildId-ceq$build.buildId) 'catalog_fixed_build'
     $metric=@($catalog.items|Where-Object kind -eq 'METRIC')[0]
     $dataset=@($catalog.items|Where-Object {$_.capabilities-contains'PREVIEW'})[0]
     Assert-Flow ($null-ne$metric -and $null-ne$dataset) 'fixture_has_metric_and_dataset'
     # 选项发现同步返回固定构建和指标集合，不再创建任务或需要幂等键。
-    $options=Invoke-Flow platform "/api/v3/dbt/builds/$($build.buildId)/available-dimensions" POST @{metricResourceIds=@($metric.resourceId)} -ExpectedStatus 200
+    $options=Invoke-Flow platform "/api/dbt/builds/$($build.buildId)/available-dimensions" POST @{metricResourceIds=@($metric.resourceId)} -ExpectedStatus 200
     Assert-Flow ($options.buildId-ceq$build.buildId -and @($options.metricResourceIds).Count-eq 1 -and $options.metricResourceIds[0]-ceq$metric.resourceId) 'options_fixed_build'
     Assert-Flow (@($options.PSObject.Properties.Name|Where-Object {$_-cin@('optionsTaskId','state','error')}).Count-eq 0) 'options_has_no_task_state'
     $dimension=@($options.dimensions|Where-Object {$_.dimensionType-ne'time'})[0]
@@ -129,8 +129,8 @@ try{
     $delivery=Invoke-Flow agent "/api/v1/agent-sessions/$b/development/deliver" POST @{idempotencyKey=[Guid]::NewGuid().ToString();expectedSourceSha=$scope.expectedSourceSha;expectedMainSha=$scope.expectedMainSha;confirmedScopeDigest=$scope.confirmedScopeDigest}
     $delivery=Wait-Operation $b $delivery
     Assert-Flow ($delivery.status-ceq'SUCCEEDED') 'delivery_operation_completed'
-    $production=Invoke-Flow service "/v3/builds/$($delivery.buildIds[-1])"
-    Assert-Flow ($production.commitSha-ceq$delivery.mergeSha -and $production.environment-ceq'PRODUCTION') 'production_uses_merge_sha'
+    $production=Invoke-Flow service "/builds/$($delivery.buildIds[-1])"
+    Assert-Flow ($production.commitSha-ceq$delivery.mergeSha -and $production.execution.environmentId-ceq$config.productionExecution.environmentId) 'production_uses_merge_sha'
     Assert-Flow ($production.buildId-cne$build.buildId -and $production.initialDeployment.deploymentStatus-ceq'DEPLOYED') 'independent_production_deployed'
     # 历史构建查询仍固定预览身份，不随正式部署切换。
     Query-Flow $build.buildId @{mode='QUERY';metricResourceIds=@($metric.resourceId);groupBy=@();filters=@();orderBy=@();limit=5}
@@ -153,7 +153,7 @@ try{
     $newBranch="feature/unbuilt-$run"
     Invoke-Flow agent "/api/v1/agent-projects/$($config.agentProjectId)/branches" POST @{branchName=$newBranch;idempotencyKey=[Guid]::NewGuid().ToString()}|Out-Null
     Wait-Flow {Invoke-Flow agent "/api/v1/agent-projects/$($config.agentProjectId)/branches"} {param($page)@($page.items|Where-Object branchName -CEQ $newBranch).Count-eq 1} 'branch_creation'|Out-Null
-    $unbuilt=Invoke-Flow platform ("/api/v3/dbt/deployments/current?repository="+[Uri]::EscapeDataString($config.repository)+"&branchName="+[Uri]::EscapeDataString($newBranch)+"&environment=PREVIEW")
+    $unbuilt=Invoke-Flow platform ("/api/dbt/deployments/current?repository="+[Uri]::EscapeDataString($config.repository)+"&branchName="+[Uri]::EscapeDataString($newBranch)+"&environmentId=$($config.previewExecution.environmentId)")
     Assert-Flow ($null-eq$unbuilt.activeBuildId) 'undeployed_branch_is_empty'
     if($ComparisonConfigPath){
         $scenario='same_branch_across_repositories'
@@ -162,10 +162,10 @@ try{
         Assert-Flow ($comparisonPreflight.Valid -and $comparison.repository-cne$config.repository -and $comparison.branchName-ceq$config.branchName) 'comparison_repository_explicit'
         # 两个仓库同名分支、相同平台实例，第二仓库必须保持自身未部署事实。
         Assert-Flow ($comparison.metricPlatformBaseUrl-ceq$config.metricPlatformBaseUrl) 'same_platform_for_isolation'
-        $isolated=Invoke-Flow platform ("/api/v3/dbt/deployments/current?repository="+[Uri]::EscapeDataString($comparison.repository)+"&branchName="+[Uri]::EscapeDataString($comparison.branchName)+"&environment=PREVIEW")
+        $isolated=Invoke-Flow platform ("/api/dbt/deployments/current?repository="+[Uri]::EscapeDataString($comparison.repository)+"&branchName="+[Uri]::EscapeDataString($comparison.branchName)+"&environmentId=$($comparison.previewExecution.environmentId)")
         Assert-Flow ($null-eq$isolated.activeBuildId -and $isolated.repository-ceq$comparison.repository) 'same_branch_repository_isolated'
     }
-    $result=@{scenario='main_flow';status='PASS';evidence=@{protocolVersion='build-deployment-v3';assertions=@($checks);identities=@($identities)}}
+    $result=@{scenario='main_flow';status='PASS';evidence=@{protocolVersion='execution-snapshot';assertions=@($checks);identities=@($identities)}}
 }catch{
     # 故障只输出步骤与稳定断言，不输出响应/正文/凭据。
     $code=$_.Exception.Message

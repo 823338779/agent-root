@@ -43,7 +43,7 @@ if ($script:MetricsCutoverHooks.Count -ne 4 -or @($script:MetricsCutoverHooks | 
         $requests.Add($Uri)
         if($TimeoutSec-ne$TimeoutSeconds){throw '同步查询等待预算错误'}
         $page=@{buildId='build-fixture';mode='QUERY';commitSha=('a'*40);businessTimezone='UTC';normalizedTimeRange=@{startTime=$null;endTime=$null};boundaryPolicy='metricflow_granularity_alignment';sql=$null;columns=@(@{name='value'});rows=@(@(1));resultTruncated=$false}
-        if($Method-ceq'POST' -and $Uri-ceq'http://fixture/api/v3/dbt/builds/build-fixture/queries'){
+        if($Method-ceq'POST' -and $Uri-ceq'http://fixture/api/dbt/builds/build-fixture/queries'){
             if((($Body|ConvertFrom-Json).PSObject.Properties.Name)-contains'idempotencyKey'){throw '同步查询不接受幂等键'}
         }else{
             throw '同步查询不提供轮询或结果分页'
@@ -73,17 +73,17 @@ if ($ConfigPath) {
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v2/projects/retired/validations'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v1/project-runs'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v1/query-jobs'},
-        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/query-options/00000000-0000-0000-0000-000000000001'},
-        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/queries/00000000-0000-0000-0000-000000000001/status'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/query-options/00000000-0000-0000-0000-000000000001'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/queries/00000000-0000-0000-0000-000000000001/status'},
         @{component='service';base=$configuration.dbtServiceBaseUrl;path='/internal/git-branch-events'},
-        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/changes'},
-        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/v3/queries/00000000-0000-0000-0000-000000000001/results'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/changes'},
+        @{component='service';base=$configuration.dbtServiceBaseUrl;path='/queries/00000000-0000-0000-0000-000000000001/results'},
         @{component='agent';base=$configuration.agentBaseUrl;path='/api/v1/git-workspaces'},
         @{component='agent';base=$configuration.agentBaseUrl;path='/api/v1/metric-branches'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v1/semantic-projects'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v2/semantic-projects'},
-        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v3/dbt/query-options/00000000-0000-0000-0000-000000000001'},
-        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v3/dbt/queries/00000000-0000-0000-0000-000000000001/status'},
+        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/dbt/query-options/00000000-0000-0000-0000-000000000001'},
+        @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/dbt/queries/00000000-0000-0000-0000-000000000001/status'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v1/semantic-projects/retired/releases'},
         @{component='platform';base=$configuration.metricPlatformBaseUrl;path='/api/v2/semantic-projects/retired/branches'}
     )
@@ -95,8 +95,8 @@ if ($ConfigPath) {
     $branches=Invoke-MetricsContractRead ($configuration.agentBaseUrl.TrimEnd('/')+'/api/v1/agent-projects/'+[Uri]::EscapeDataString($configuration.agentProjectId)+'/branches') (Get-MetricsContractHeaders $configuration 'agent')
     $branch=@($branches.items | Where-Object branchName -CEQ $configuration.branchName)
     if($branch.Count-ne 1){throw '负向协议测试需要明确存在的隔离测试分支'}
-    $invalid=@{repository=$configuration.repository;branchName=$configuration.branchName;commitSha=$branch[0].headSha;environment='PREVIEW';executionBinding=$configuration.previewBinding;configVersion=$configuration.previewConfigVersion;schemaName=$configuration.previewSchemaName;deploymentPolicy='NONE';idempotencyKey=[Guid]::NewGuid().ToString();projectId='retired'} | ConvertTo-Json
-    $response=Invoke-WebRequest -Uri ($configuration.dbtServiceBaseUrl.TrimEnd('/')+'/v3/builds') -Method Post -Body $invalid -ContentType 'application/json' -Headers (Get-MetricsContractHeaders $configuration 'service') -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 20
+    $invalid=@{repository=$configuration.repository;branchName=$configuration.branchName;commitSha=$branch[0].headSha;execution=$configuration.previewExecution;deploymentPolicy='NONE';idempotencyKey=[Guid]::NewGuid().ToString();projectId='retired'} | ConvertTo-Json -Depth 12
+    $response=Invoke-WebRequest -Uri ($configuration.dbtServiceBaseUrl.TrimEnd('/')+'/builds') -Method Post -Body $invalid -ContentType 'application/json' -Headers (Get-MetricsContractHeaders $configuration 'service') -MaximumRedirection 0 -SkipHttpErrorCheck -TimeoutSec 20
     if ($response.StatusCode -ne 422) {throw '未知旧字段必须返回422'}
     Write-Output 'PASS：真实三端旧路由404及旧字段422。'
 }

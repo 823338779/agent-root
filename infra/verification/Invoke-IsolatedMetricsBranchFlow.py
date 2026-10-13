@@ -236,7 +236,7 @@ class EngineProxy(BaseHTTPRequestHandler):
         # 引擎已经持久受理后丢掉第一次构建响应，Agent必须用原幂等键恢复。
         if (
             self.command == "POST"
-            and self.path == "/v3/builds"
+            and self.path == "/builds"
             and response.status in (200, 202)
             and not EngineProxy.dropped
         ):
@@ -291,6 +291,16 @@ try:
     for db in ("engine", "agent", "platform", "warehouse"):
         run(["docker", "exec", container, "createdb", "-U", "postgres", db])
     repo = WORK / "repository.git"
+    # 只对本隔离进程把受控测试 URL 映射到真实本地 Git 仓库，不修改用户 Git 配置。
+    repository = "https://fixture.invalid/repository.git"
+    replica_repository = "https://fixture.invalid/replica.git"
+    ENV.update(
+        {
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "url." + WORK.as_uri() + "/.insteadOf",
+            "GIT_CONFIG_VALUE_0": "https://fixture.invalid/",
+        }
+    )
     seed = WORK / "seed"
     shutil.copytree(
         ROOT / "dbt-metricflow-service/tests/fixtures/postgres_platform", seed
@@ -323,58 +333,63 @@ try:
     threading.Thread(target=proxy.serve_forever, daemon=True).start()
     server = ThreadingHTTPServer(("127.0.0.1", modelport), Model)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    profiles = WORK / "profiles"
-    profiles.mkdir()
-    profile = {
-        "postgres_platform": {
-            "target": "postgres",
-            "outputs": {
-                "postgres": {
-                    "type": "postgres",
-                    "host": "127.0.0.1",
-                    "port": int(pgport),
-                    "user": "postgres",
-                    "password": "{{ env_var('PLATFORM_TEST_PGPASSWORD') }}",
-                    "dbname": "warehouse",
-                    "schema": "{{ env_var('DBT_PLATFORM_SCHEMA') }}",
-                    "threads": 2,
-                }
-            },
-        }
-    }
-    import yaml
-
-    (profiles / "profiles.yml").write_text(yaml.safe_dump(profile), encoding="utf-8")
     serviceconfig = WORK / "service.yml"
-    serviceconfig.write_text("{}", encoding="utf-8")
+    serviceconfig.write_text(
+        json.dumps(
+            {
+                "EXECUTION_INSTANCES": {
+                    "fixture": {
+                        "type": "postgres",
+                        "hosts": ["127.0.0.1"],
+                        "port": int(pgport),
+                    }
+                },
+                "EXECUTION_CREDENTIALS": {
+                    "fixture": {
+                        "userEnv": "DBT_ENV_SECRET_FIXTURE_USER",
+                        "passwordEnv": "DBT_ENV_SECRET_FIXTURE_PASSWORD",
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def execution(schema):
+        return {
+            "environmentId": str(uuid.uuid4()),
+            "configVersion": 1,
+            "connection": {
+                "type": "postgres",
+                "instanceId": "fixture",
+                "host": "127.0.0.1",
+                "port": int(pgport),
+                "path": None,
+            },
+            "credentialRef": "fixture",
+            "catalog": "warehouse",
+            "schema": schema,
+            "threads": 2,
+            "businessTimezone": "UTC",
+        }
+
+    preview, production = (
+        execution("analytics_preview"),
+        execution("analytics_production"),
+    )
     serviceenv = ENV | {
         "SERVICE_CONFIG_FILE": str(serviceconfig),
         "SERVICE_DATABASE_URL": f"postgresql://postgres:{SECRET}@127.0.0.1:{pgport}/engine",
-        "DBT_PROFILES_DIR": str(profiles),
         "SERVICE_TEMP_ROOT": str(WORK / "runtime"),
         "SERVICE_TOKEN": TOKEN,
         "SERVICE_HOST": "127.0.0.1",
         "SERVICE_PORT": str(serviceport),
-        "PLATFORM_TEST_PGPASSWORD": SECRET,
+        "DBT_ENV_SECRET_FIXTURE_USER": "postgres",
+        "DBT_ENV_SECRET_FIXTURE_PASSWORD": SECRET,
         "SERVICE_CONFIG_VERSION": "1",
     }
     admin = ROOT / "dbt-metricflow-service/.venv/Scripts/dbt-service-admin.exe"
     run([admin, "init-db"], env=serviceenv)
-    bindings = WORK / "bindings.json"
-    bindings.write_text(
-        json.dumps(
-            [
-                {
-                    "repository": str(repo),
-                    "executionBinding": env.lower(),
-                    "configVersion": "1",
-                    "config": {"profileBindingId": "postgres", "environments": [env]},
-                }
-                for env in ("PREVIEW", "PRODUCTION")
-            ]
-        )
-    )
-    run([admin, "register-bindings", bindings], env=serviceenv)
     start(
         [ROOT / "dbt-metricflow-service/.venv/Scripts/dbt-metricflow-service.exe"],
         "engine",
@@ -426,7 +441,8 @@ try:
     gitwrapper.write_text(
         f"""import json,pathlib,re,subprocess,sys
 ROOT=pathlib.Path({str(WORK)!r})
-r=subprocess.run([{gitexe!r}]+sys.argv[1:],capture_output=True,check=False)
+# Agent 会清除继承的 Git 配置；仅测试启动器显式映射受控 fixture URL。
+r=subprocess.run([{gitexe!r},'-c',{"url." + WORK.as_uri() + "/.insteadOf=https://fixture.invalid/"!r}]+sys.argv[1:],capture_output=True,check=False)
 if r.returncode:
     with (ROOT/'git-command-errors.jsonl').open('a',encoding='utf-8') as log:
         log.write(json.dumps({{'arguments':sys.argv[1:],'error':r.stderr.decode('utf-8','replace')}})+'\\n')
@@ -555,13 +571,9 @@ class GitFaultLauncher {
         method="PUT",
         data=json.dumps(
             {
-                "repository": str(repo),
-                "previewBinding": "preview",
-                "previewConfigVersion": "1",
-                "previewSchemaName": "analytics_preview",
-                "productionBinding": "production",
-                "productionConfigVersion": "1",
-                "productionSchemaName": "analytics_production",
+                "repository": repository,
+                "previewExecution": preview,
+                "productionExecution": production,
                 "expectedVersion": 0,
             }
         ).encode(),
@@ -573,14 +585,10 @@ class GitFaultLauncher {
         "metricPlatformBaseUrl": platform,
         "dbtServiceBaseUrl": service,
         "agentProjectId": project,
-        "repository": str(repo),
+        "repository": repository,
         "branchName": "feature/integration",
-        "previewBinding": "preview",
-        "previewConfigVersion": "1",
-        "previewSchemaName": "analytics_preview",
-        "productionBinding": "production",
-        "productionConfigVersion": "1",
-        "productionSchemaName": "analytics_production",
+        "previewExecution": preview,
+        "productionExecution": production,
         "dbtServiceTokenEnvironment": "CONTRACT_ENGINE_TOKEN",
         "platformTokenEnvironment": "CONTRACT_PLATFORM_TOKEN",
     }
@@ -594,13 +602,9 @@ class GitFaultLauncher {
         agent, "/api/v1/agent-projects", {"name": "Repository isolation fixture"}
     )["projectId"]
     secondbody = {
-        "repository": str(replica),
-        "previewBinding": "preview",
-        "previewConfigVersion": "1",
-        "previewSchemaName": "analytics_preview",
-        "productionBinding": "production",
-        "productionConfigVersion": "1",
-        "productionSchemaName": "analytics_production",
+        "repository": replica_repository,
+        "previewExecution": preview,
+        "productionExecution": production,
         "expectedVersion": 0,
     }
     urllib.request.urlopen(
@@ -614,7 +618,7 @@ class GitFaultLauncher {
     comparisonpath = WORK / "comparison.json"
     comparisonpath.write_text(
         json.dumps(
-            config | {"agentProjectId": secondproject, "repository": str(replica)}
+            config | {"agentProjectId": secondproject, "repository": replica_repository}
         )
     )
     (TASK / "active-fixture.json").write_text(
@@ -687,11 +691,21 @@ class GitFaultLauncher {
             build_id for fact in facts for build_id in fact.get("buildIds", [])
         ]:
             raise RuntimeError("build_recovery_changed_identity")
-        history = api(
-            service,
-            "/v3/builds?" + urlencode({"repository": str(repo), "limit": 200}),
-            token=TOKEN,
-        )
+        history = {"items": []}
+        for snapshot in (preview, production):
+            page = api(
+                service,
+                "/builds?"
+                + urlencode(
+                    {
+                        "environmentId": snapshot["environmentId"],
+                        "repository": repository,
+                        "limit": 200,
+                    }
+                ),
+                token=TOKEN,
+            )
+            history["items"].extend(page["items"])
         if len(history["items"]) != 4:
             raise RuntimeError("unexpected_extra_build")
         # 停止平台期间，Agent及引擎继续独立工作；重启后从服务实时读取历史，不依赖changefeed检查点。
@@ -727,8 +741,14 @@ class GitFaultLauncher {
         while time.time() < deadline:
             restored = api(
                 platform,
-                "/api/v3/dbt/builds?"
-                + urlencode({"repository": str(repo), "limit": 200}),
+                "/api/dbt/builds?"
+                + urlencode(
+                    {
+                        "environmentId": preview["environmentId"],
+                        "repository": repository,
+                        "limit": 200,
+                    }
+                ),
                 token=access,
             )
             if operation["buildIds"][-1] in [b["buildId"] for b in restored["items"]]:
@@ -738,9 +758,9 @@ class GitFaultLauncher {
             raise RuntimeError("platform_history_not_read")
         evidence["evidence"]["faultInjections"] = injections
         evidence["evidence"]["recoveredReceipts"] = receipts
-        evidence["evidence"]["platformRestartObservedBuildId"] = operation[
-            "buildIds"
-        ][-1]
+        evidence["evidence"]["platformRestartObservedBuildId"] = operation["buildIds"][
+            -1
+        ]
         evidence["evidence"]["actualComponents"] = [
             "real Git",
             "real PostgreSQL",

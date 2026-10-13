@@ -19,7 +19,8 @@ try {
     $good = @{
         agentBaseUrl='http://127.0.0.1:8080'; metricPlatformBaseUrl='http://127.0.0.1:8090'; dbtServiceBaseUrl='http://127.0.0.1:8000'
         agentProjectId='project-1'; repository='ssh://git@agent-metrics-git/agent-admin/metrics.git'; branchName='feature/revenue'
-        previewBinding='preview'; previewConfigVersion='1'; previewSchemaName='analytics_preview'; productionBinding='production'; productionConfigVersion='1'; productionSchemaName='analytics_production'
+        previewExecution=@{environmentId='12345678-1234-4234-8234-000000000001';configVersion=1;connection=@{type='starrocks';instanceId='warehouse';host='localhost';port=9030;path=$null};credentialRef='warehouse-test';catalog='default_catalog';schema='analytics_preview';threads=2;businessTimezone='Asia/Shanghai'}
+        productionExecution=@{environmentId='12345678-1234-4234-8234-000000000002';configVersion=1;connection=@{type='starrocks';instanceId='warehouse';host='localhost';port=9030;path=$null};credentialRef='warehouse-test';catalog='default_catalog';schema='analytics_production';threads=2;businessTimezone='Asia/Shanghai'}
         dbtServiceTokenEnvironment='METRICS_CONTRACT_TEST_TOKEN'; platformTokenEnvironment='METRICS_CONTRACT_TEST_TOKEN'
     }
     Assert-MetricsBranchConfig $good
@@ -27,10 +28,10 @@ try {
         @{ name='旧项目子目录'; mutate={param($c) $c.projectSubdir='.'}; error='projectSubdir' },
         @{ name='旧服务分支身份'; mutate={param($c) $c.branchId='opaque-old'}; error='branchId' },
         @{ name='旧代理模式'; mutate={param($c) $c.mode='service-proxy'}; error='mode' },
-        @{ name='缺少preview版本'; mutate={param($c) $c.Remove('previewConfigVersion')}; error='previewConfigVersion' },
-        @{ name='缺少正式版本'; mutate={param($c) $c.Remove('productionConfigVersion')}; error='productionConfigVersion' },
-        @{ name='缺少预览schema'; mutate={param($c) $c.Remove('previewSchemaName')}; error='previewSchemaName' },
-        @{ name='非法正式schema'; mutate={param($c) $c.productionSchemaName='invalid-schema'}; error='productionSchemaName' },
+        @{ name='缺少preview版本'; mutate={param($c) $c.previewExecution.Remove('configVersion')}; error='previewExecution' },
+        @{ name='缺少正式版本'; mutate={param($c) $c.productionExecution.Remove('configVersion')}; error='productionExecution' },
+        @{ name='缺少预览schema'; mutate={param($c) $c.previewExecution.Remove('schema')}; error='previewExecution' },
+        @{ name='非法正式schema'; mutate={param($c) $c.productionExecution.schema='invalid-schema'}; error='productionExecution' },
         @{ name='缺少仓库不兜底'; mutate={param($c) $c.Remove('repository')}; error='repository' },
         @{ name='凭据嵌入URL'; mutate={param($c) $c.agentBaseUrl='http://user:password@example.test'}; error='agentBaseUrl' },
         @{ name='预览禁止main'; mutate={param($c) $c.branchName='main'}; error='branchName' },
@@ -61,10 +62,10 @@ try {
         if($url.EndsWith('/development-config')){return $good}
         if($url -match '/health(?:/ready)?$'){return @{status='UP'}}
         $paths=@{}
-        foreach($path in @('/v3/builds','/v3/deployments/current','/v3/query','/v3/query/available-dimensions',
+        foreach($path in @('/builds','/deployments/current','/query','/query/available-dimensions',
             '/api/v1/agent-sessions/{sessionId}/development/save','/api/v1/agent-sessions/{sessionId}/development/preview',
-            '/api/v1/agent-sessions/{sessionId}/development/deliver','/api/v3/dbt/builds/{buildId}/catalog','/api/v3/dbt/builds/{buildId}/queries')){$paths[$path]=@{}}
-        return @{protocolVersion='build-deployment-v3';paths=$paths}
+            '/api/v1/agent-sessions/{sessionId}/development/deliver','/api/dbt/builds/{buildId}/catalog','/api/dbt/builds/{buildId}/queries')){$paths[$path]=@{}}
+        return @{protocolVersion='execution-snapshot';paths=$paths}
     }.GetNewClosure()
     if(!(Test-MetricsContractPreflight $good $validReader).Valid){throw '匹配三端schema的配置必须通过预检'}
     $httpShapeReader={param($url,$headers) (&$validReader $url $headers)|ConvertTo-Json -Depth 12|ConvertFrom-Json}.GetNewClosure()
@@ -72,7 +73,7 @@ try {
     # 即使绑定版本相同，schema 不一致也可能写入错误的数据环境，必须拦截。
     $mismatchedSchemaReader={param($url,$headers)
         if($url.EndsWith('/development-config')){
-            $config=$good.Clone();$config.previewSchemaName='another_preview';return $config
+            $config=$good|ConvertTo-Json -Depth 12|ConvertFrom-Json -AsHashtable;$config.previewExecution.schema='another_preview';return $config
         }
         return &$validReader $url $headers
     }.GetNewClosure()
