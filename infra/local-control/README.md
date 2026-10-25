@@ -4,7 +4,7 @@ Python + Tkinter 一体化 Windows 桌面客户端，不需要安装第三方 Py
 
 ## 启动
 
-工作区需要 Python 3.11+（含 Tk）、JDK 21、Maven、Node/npm，以及已安装依赖的 dbt 虚拟环境。当前工作区的这些工具已存在。
+工作区需要 Python 3.11+（含 Tk）、PATH 中可用的 uv、JDK 21、Maven、Node/npm，以及已安装依赖的 dbt 虚拟环境。当前工作区的这些工具已存在。
 
 在工作区根目录运行：
 
@@ -34,7 +34,7 @@ python .\infra\local-control\app.py
 
 | 服务 | 默认端口 | 启动方式 |
 | --- | --- | --- |
-| dbt-service | 8000 | 自身 `.venv/Scripts/python.exe`，根 `.run` 中的工作目录和环境变量 |
+| dbt-service | 8000 | `uv run <项目路径>/.venv/Scripts/python.exe -m dbt_metricflow_service.main`，通过 PATH 定位 uv，使用根 `.run` 中的工作目录和环境变量 |
 | Metric Platform | 8090 | 独立 Maven 构建生产 jar，然后使用 Java 启动 |
 | Agent V2 | 8080 | 独立 Maven 构建生产 jar，然后使用 Java 启动 |
 | Agent V2 前端 | 5173 | 原项目 `npm run dev`，固定端口及 strictPort |

@@ -25,6 +25,12 @@ WINDOWS = 'nt'
 PORT_ARGUMENT = '--port'
 SERVER_PORT_ARGUMENT = '--server.port='
 SERVER_PORT_VM_ARGUMENT = '-Dserver.port='
+# dbt 经 uv 管理运行环境，仍显式使用项目虚拟环境中的解释器。
+UV_TOOL = 'uv'
+UV_RUN_ARGUMENT = 'run'
+PYTHON_EXECUTABLE = 'python.exe'
+PYTHON_MODULE_ARGUMENT = '-m'
+DBT_MODULE = 'dbt_metricflow_service.main'
 
 
 def split_arguments(value: str) -> tuple[str, ...]:
@@ -150,7 +156,8 @@ def load_services(root: Path) -> list[ServiceSpec]:
             watch_paths=(folder / 'backend', folder / 'pom.xml', root / run_file),
         ))
 
-    # Python 使用 PyCharm 指定的项目虚拟环境及相同配置文件。
+    # 通过 PATH 定位 uv，使用 PyCharm 指定的项目虚拟环境及相同配置文件。
+    uv = shutil.which(UV_TOOL) or UV_TOOL
     dbt = root / 'dbt-metricflow-service'
     run_file = root / '.run/dbt-metricflow-service.run.xml'
     ide = read_ide(run_file, root)
@@ -167,7 +174,8 @@ def load_services(root: Path) -> list[ServiceSpec]:
             dbt_port = int(match[1])
     services.insert(0, ServiceSpec(
         key='dbt', name='dbt-service', cwd=ide.cwd if run_file.exists() else dbt,
-        command=(str(scripts / 'python.exe'), '-m', 'dbt_metricflow_service.main'),
+        command=(uv, UV_RUN_ARGUMENT, str(scripts / PYTHON_EXECUTABLE),
+                 PYTHON_MODULE_ARGUMENT, DBT_MODULE),
         port=dbt_port, health_path='/health/ready', open_path='/docs', env=env, root=root,
         watch_paths=(dbt / 'src', dbt / 'config', dbt / 'pyproject.toml', dbt / 'uv.lock',
                      dbt / 'vendor', run_file, dbt / '.run'),

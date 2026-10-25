@@ -5,9 +5,19 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from config import load_services, read_ide
 from watcher import SourceWatcher, needs_restart
+
+# dbt 启动契约使用独立预期值，覆盖带空格的 uv 安装路径。
+DBT_KEY = 'dbt'
+UV_TOOL = 'uv'
+UV_TEST_PATH = 'C:/Python Tools/Scripts/uv.exe'
+DBT_PYTHON_PATH = 'dbt-metricflow-service/.venv/Scripts/python.exe'
+DBT_MODULE_COMMAND = ('-m', 'dbt_metricflow_service.main')
+UV_RUN_ARGUMENT = 'run'
+WHICH_TARGET = 'config.shutil.which'
 
 
 class WatcherTest(unittest.TestCase):
@@ -67,6 +77,17 @@ class WatcherTest(unittest.TestCase):
 
 class ConfigurationTest(unittest.TestCase):
     """验证实际启动参数边界而不是配置文件文本。"""
+
+    def test_dbt_runs_project_python_through_uv(self):
+        # 工具已安装和缺失时均经 uv 启动，并保持参数边界与项目解释器。
+        root = Path(__file__).resolve().parents[3]
+        for uv_path in (UV_TEST_PATH, None):
+            with self.subTest(uv_path=uv_path), patch(
+                    WHICH_TARGET, side_effect=lambda name: uv_path if name == UV_TOOL else None):
+                spec = next(item for item in load_services(root) if item.key == DBT_KEY)
+                self.assertEqual(spec.command, (
+                    uv_path or UV_TOOL, UV_RUN_ARGUMENT,
+                    str(root / DBT_PYTHON_PATH), *DBT_MODULE_COMMAND))
 
     def test_ide_macros_resolve_against_workspace_and_parent_environment(self):
         with tempfile.TemporaryDirectory(prefix='中控 space ') as directory:
