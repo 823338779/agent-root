@@ -15,5 +15,9 @@
 	ignore = all
 [submodule "metric_store"]
 	path = metric_store
-	url = http://127.0.0.1:3000/agent-admin/metrics.git
+	url = https://github.com/823338779/metric_store.git
+	ignore = all
+[submodule "dbt-metricflow-service"]
+	path = dbt-metricflow-service
+	url = https://github.com/823338779/metric_platform-dbt-infra.git
 	ignore = all
