@@ -5,7 +5,8 @@ COPY metric-platform/api /workspace/api
 RUN mvn -f /workspace/backend/pom.xml -DskipTests package
 
 FROM eclipse-temurin:21-jre
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+# 平台用 Git 枚举构建仓库的分支，curl 供就绪探针使用。
+RUN apt-get update && apt-get install -y --no-install-recommends curl git && rm -rf /var/lib/apt/lists/* \
     && useradd --system --create-home --uid 10001 appuser
 WORKDIR /app
 COPY --from=build /workspace/backend/metric-app/target/metric-app-*.jar /app/app.jar

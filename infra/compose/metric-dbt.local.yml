@@ -1,0 +1,67 @@
+# 与 compose.yml 叠加，复用本机已有的中间件、业务库和执行快照。
+services:
+  # 指标平台的图库归入 data-agent 分组，沿用原数据库卷和 Bolt 网络别名。
+  neo4j:
+    extends:
+      file: ../../metric-platform/docker-compose.yml
+      service: neo4j
+    networks: [ontology]
+    volumes:
+      - neo4j-logs:/logs
+
+  dbt-service:
+    image: dbt-service:local
+    build:
+      context: ../../dbt-metricflow-service
+      dockerfile: ../infra/docker/dbt-service.Dockerfile
+    deploy:
+      replicas: 3
+    restart: unless-stopped
+    init: true
+    environment:
+      SERVICE_CONFIG_FILE: /app/config/service.yaml
+    volumes:
+      - ../../dbt-metricflow-service/config/service.yaml:/app/config/service.yaml:ro
+    # 原有配置及已保存的执行快照使用 localhost，转发到同一份 PostgreSQL 和 StarRocks 数据。
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        socat TCP4-LISTEN:5432,bind=127.0.0.1,reuseaddr,fork TCP4:data-agent-postgres:5432 &
+        socat TCP4-LISTEN:9030,bind=127.0.0.1,reuseaddr,fork TCP4:data-agent-starrocks:9030 &
+        exec dbt-metricflow-service
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=4).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  metric-platform-api:
+    image: metric-platform-api:local
+    environment:
+      DBT_SERVICE_BASE_URI: http://metric-platform-web:8000
+      METRIC_NEO4J_URI: bolt://neo4j:7687
+    env_file:
+      - path: ${USERPROFILE}/.metric-platform/ontology.properties
+        required: false
+    networks: [default, ontology]
+
+  metric-platform-web:
+    image: metric-platform-web:local
+    # 控制台与 dbt 的统一入口仅绑定在宿主机回环地址。
+    ports: !override
+      - "127.0.0.1:8090:80"
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../docker/nginx/dbt-service.local.conf:/etc/nginx/conf.d/dbt-service.conf:ro
+
+networks:
+  ontology:
+    external: true
+    name: metric-platform_default
+
+volumes:
+  metric-platform-neo4j:
+    external: true
+    name: metric-platform_metric-platform-neo4j
+  neo4j-logs:

@@ -46,8 +46,25 @@ docker compose -f .\infra\compose\compose.yml --profile full down
 
 只有明确要删除 PostgreSQL、Redis 数据时，才追加 `--volumes`。Forgejo 的 SQLite、仓库及 SSH 主机密钥使用外部卷 `agent-platform_forgejo-data`，该命令不会删除它们；旧 Git 卷也不会被自动迁移或删除。
 
+## 本地指标平台和三个 dbt-service 副本
+
+在 Windows Docker Desktop 上，叠加 `metric-dbt.local.yml` 可在 `data-agent` 分组中运行指标平台（API、Web）、Neo4j 和三个 dbt-service。该配置复用已运行的 PostgreSQL、Redis、StarRocks，以及 `dbt-metricflow-service/config/service.yaml` 指向的已初始化服务库。Neo4j 使用原有的 `metric-platform_metric-platform-neo4j` 数据卷和 `metric-platform_default` 网络。共享基础设施若使用自定义 Compose 环境文件，请同时传入原文件。
+
+在根目录执行：
+
+```powershell
+$stack = @('--env-file', "$HOME/.metric-platform/ontology.properties", '-f', 'infra/compose/compose.yml', '-f', 'infra/compose/metric-dbt.local.yml')
+$services = @('dbt-service', 'metric-platform-api', 'metric-platform-web')
+docker compose @stack build @services
+docker compose @stack up -d --no-deps --wait neo4j
+docker compose @stack up -d --no-deps --wait @services
+docker compose @stack ps @services
+```
+
+控制台地址为 `http://127.0.0.1:8090`。宿主机通过 `http://127.0.0.1:8000` 访问 dbt-service，平台 API 通过同一 Nginx 在容器网络内的入口访问三个副本。每个副本使用独立临时目录，共享构建记录和产物。停止这组应用可执行 `docker compose @stack stop @services`。
+
 ## 指标开发分支
 
-当前 Compose 继续只为新分支流程提供基础设施，dbt-service 与 Agent V2 按各自 README 在宿主机运行。`.env.example` 中新增的分支配置需注入对应宿主机进程，Compose 不会自动为宿主机设置环境变量。签名与服务凭据保持空占位，不提交实际值。
+默认 Compose 为新分支流程提供基础设施。dbt-service 可按上节在容器运行，也可按产品 README 在宿主机运行。Agent V2 在宿主机启动时，需向其进程注入相应的分支配置。
 
 Forgejo 事件目标使用 `host.docker.internal:<服务端口>/internal/git-branch-events`；启用事件补偿扫描并停用旧平台发布者。预检、接线与验收命令见 [分支验证说明](../verification/README.md)。

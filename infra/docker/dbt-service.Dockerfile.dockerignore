@@ -1,0 +1,26 @@
+# 仅包含安装锁定依赖所需的源码，运行配置在启动时挂载。
+**
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+!src/**
+!vendor/
+!vendor/dbt/
+!vendor/dbt/core/
+!vendor/dbt/core/**
+!vendor/metricflow/
+!vendor/metricflow/*.md
+!vendor/metricflow/LICENSE
+!vendor/metricflow/*.toml
+!vendor/metricflow/msi_pydantic_shim.py
+!vendor/metricflow/requirements-files/**
+!vendor/metricflow/metricflow/**
+!vendor/metricflow/metricflow_semantics/**
+!vendor/metricflow/metricflow_semantic_interfaces/**
+!vendor/metricflow/dbt-metricflow/**
+**/.venv*
+**/dist/
+**/.git
+**/__pycache__/
+**/*_cache/
