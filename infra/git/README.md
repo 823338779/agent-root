@@ -28,16 +28,6 @@
 
 后续 Compose 命令也必须使用相同的 `GIT_SSH_PORT`。如果已有 `known_hosts` 与当前端口或主机密钥不一致，脚本会停止，需人工核对后处理。
 
-## 连接 Data Agent V2
-
-初始化脚本会为当前 PowerShell 进程设置：
-
-```powershell
-$env:DATA_AGENT_GIT_ENABLED = 'true'
-```
-
-从另一终端或 IDEA 启动 Agent 时，需要在对应启动环境开启 Git，并使用运行初始化脚本的同一系统账户，以便读取专用 SSH 配置和私钥。仓库地址 `ssh://git@agent-metrics-git/agent-admin/metrics.git` 通过 Agent 项目的 development-config 显式配置，不能由全局默认仓库推断会话目标。
-
 ## 数据与升级
 
 | 项目 | 存放位置 |
@@ -63,4 +53,4 @@ git ls-remote ssh://git@agent-metrics-git/agent-admin/metrics.git refs/heads/mai
 
 隔离测试覆盖 Web 健康、禁止注册、幂等初始化、SSH clone/push、`main` 强推与删除拒绝、功能分支以及容器重建后的数据和主机密钥持久性。测试日志中预期的 `push rejected` 是保护规则验收，不代表测试失败。
 
-切换新协议时可显式追加 `-DisableLegacyPublishing`，停用已识别的旧自动发布 webhook，并保留无关通知。初始化不会安装新的发布 webhook；保存、预览和交付由 Agent 明确编排。配套版本和聚合验收见 [分支验证说明](../verification/README.md)。
+切换新协议时可显式追加 `-DisableLegacyPublishing`，停用已识别的旧自动发布 webhook，并保留无关通知。初始化不会安装新的发布 webhook。

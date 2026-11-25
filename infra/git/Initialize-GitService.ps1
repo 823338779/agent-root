@@ -89,7 +89,5 @@ if (!$existing.Contains($include)) {
     [IO.File]::WriteAllText($sshConfig, "$include`n$existing")
 }
 
-# 仓库地址交给 Agent 项目配置，不能作为新会话的隐式全局默认目标。
-$env:DATA_AGENT_GIT_ENABLED = 'true'
 Invoke-Checked git @('ls-remote', $remoteUri, 'refs/heads/main')
-Write-Output "Forgejo 已就绪：$baseUri；DATA_AGENT_GIT_ENABLED 已开启。请将 $remoteUri 配置到 Agent 项目的 repository。"
+Write-Output "Forgejo 已就绪。服务地址 $baseUri，仓库地址 $remoteUri。"

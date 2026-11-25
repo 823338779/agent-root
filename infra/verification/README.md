@@ -1,5 +1,11 @@
 # 指标构建协议的部署与验收
 
+当前版本的契约验证命令见[根目录说明](../../README.md#dbt-service-与指标平台契约验证)。
+
+## 旧版三端联调记录
+
+以下脚本和步骤面向包含开发会话的历史版本。当前 Data Agent V2 已移除对应 API。
+
 Agent 负责项目、真实 Git 分支、保存和交付；dbt-service 只提供固定构建、部署、目录和查询能力；指标平台聚合来源与历史。会话绑定一个开发目标，同分支可由多个会话独立编辑。本期仅保证 push 后内容可恢复。
 
 将 `metrics-branch-config.example.json` 复制到工作区外的本地受控目录，明确填写三端地址、Agent 项目、规范 repository、branchName 和previewExecution 和 productionExecution 完整快照。凭据仅通过配置所指环境变量读取，不写入清单或日志。受支持命令统一见[根 README](../../README.md)，此处不重复维护。

@@ -27,7 +27,7 @@
 
 ## 环境要求
 
-指标仓库的多分支开发部署、唯一发布通知和三服务聚合检查见 [指标分支验收](infra/verification/README.md)。Agent V2、dbt-service 与指标平台各自独立构建，线上与开发预览通过固定分支、版本隔离。
+指标平台通过 dbt-service 管理构建与查询，Data Agent V2 可独立启动。
 
 - 支持子模块的 Git
 - JDK 21 和 Maven
@@ -139,7 +139,7 @@ docker compose --env-file .\infra\compose\.env `
 ```
 
 更多端点和环境变量说明见 [Compose 部署指南](infra/compose/README.md)。
-Forgejo Web 只监听 `http://127.0.0.1:3000`，SSH 默认只监听 `127.0.0.1:2222`，SQLite、仓库和 SSH 主机密钥使用外部持久卷；Agent V2 的连接配置见 [Forgejo Git 服务部署](infra/git/README.md)。
+Forgejo Web 只监听 `http://127.0.0.1:3000`，SSH 默认只监听 `127.0.0.1:2222`，SQLite、仓库和 SSH 主机密钥使用外部持久卷；部署与连接说明见 [Forgejo Git 服务部署](infra/git/README.md)。
 
 分别快速打包两个后端（以下命令会跳过测试）：
 
@@ -216,34 +216,10 @@ git diff --ignore-submodules=none
 
 执行任何重置、对账或破坏性迁移验证之前，请先阅读相关固件文档。
 
-## 新构建协议配套验证与切换
+## dbt-service 与指标平台契约验证
 
-当前开发目标是 `data-agent-v2`、`metric-platform` 和独立的 `dbt-metricflow-service`。引擎统一提供无版本号的执行快照接口；Agent负责固定会话的保存/预览/交付，指标平台仅消费构建、部署、目录和查询事实。旧版本不能混用，不提供接口回退。
-
-从根目录执行配置自检、真实只读预检、闭环和退出检查：
+从工作区根目录运行以下命令，校验服务端模型和指标平台的契约样例。
 
 ```powershell
-pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchConfig.ps1 -SelfTest
-pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchRegression.ps1 -SelfTest
 .\dbt-metricflow-service\.venv\Scripts\python.exe -B -X utf8 .\infra\verification\Test-DbtConsumerContracts.py
-pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchConfig.ps1 -ConfigPath <本机配置.json> -Preflight
-pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchFlow.ps1 -ConfigPath <隔离测试配置.json>
-pwsh -NoProfile -File .\infra\verification\Test-MetricsBranchRegression.ps1 -ConfigPath <隔离测试配置.json>
-pwsh -NoProfile -File .\infra\git\Test-GitService.ps1
-# 使用已构建的三端产物自动创建并清理隔离环境（Windows）。
-.\dbt-metricflow-service\.venv\Scripts\python.exe .\infra\verification\Invoke-IsolatedMetricsBranchFlow.py
 ```
-
-配置结构见 [示例](infra/verification/metrics-branch-config.example.json)。先在Agent项目配置规范仓库及两套完整执行快照（`previewExecution`、`productionExecution`）；服务侧可信物理实例清单和凭据引用必须已配置且匹配。凭据只通过命名的环境变量读取；dbt-service进程使用 `SERVICE_TOKEN`，平台的 `DBT_SERVICE_TOKEN` 与Agent的 `DATA_AGENT_DBT_SERVICE_TOKEN` 指向该服务身份。预检同时读取三端健康及实际契约、核对项目配置；失败时不执行任何业务写入。
-
-Flow必须运行在专用仓库/分支、隔离数据库和测试数据仓库中。它通过正常Agent消息调用文件工具，创建两个开发会话，核实Git保存、固定SHA预览、四种查询、实际合并M的正式构建及非法YAML失败保持旧部署。结果仅包含断言和操作/构建/SHA身份，默认输出控制台；可用 `-OutputDirectory` 指向系统临时目录保存结果。Mock自检通过不等于真实三端闭环通过。
-
-`Invoke-IsolatedMetricsBranchFlow.py` 需要 Docker、Java、Git、PowerShell 7、Windows 自带 .NET Framework 编译器、服务的已安装 `.venv` 及两个 Java 产品的可运行 jar。它使用随机容器名、端口、测试凭据和系统临时目录，真实执行 Git、PostgreSQL、Redis、dbt/MetricFlow 和三端 HTTP；模型决策由确定性 Ollama 固件代替，因此不提供模型质量证据。它使用非默认 `analytics` 模型目录，注入 push、merge、build 已受理后响应丢失，重启平台验证从服务实时读取历史，并验证同名分支跨仓库隔离。退出会停止自身创建的进程和容器，脱敏结果及诊断保留在输出的系统临时路径；不触碰共享 Compose 实例。单独运行 Flow 时，可用 `-ModelDirectory` 指定隔离工程的模型目录，`-ComparisonConfigPath` 指向同一平台内另一个明确配置的隔离仓库，覆盖同名分支隔离断言。
-
-初始化Git默认不安装发布webhook。已有实例需要明确执行 `Initialize-GitService.ps1 -DisableLegacyPublishing`，仅停用本链路旧发布地址，保留无关通知；这一操作不自动应用于未知生产实例。开发绑定和候选不会在分支被删后自动重建远端分支。
-
-隔离脚本还会启动独占端口的真实平台浏览器验证，依赖前端已安装的 npm 依赖及 Chrome。它检查固定构建身份与同步查询返回值，产物中记录三端版本和 Java 制品 hash；关闭包含登录过程的截图、视频与 trace。Compose Web 镜像通过 `AGENT_PUBLIC_URL` / `METRIC_PLATFORM_PUBLIC_URL` 构建参数注入浏览器跳转地址，自定义域名或端口时应同步配置并重建镜像。
-
-启动顺序：配置服务可信实例和凭据环境变量 → 使用空库执行 dbt-service `init-db` → 启动引擎 → 配置 Agent 两套完整执行快照并启动调用方 → 三端 preflight 成功后开放写入。无需兼容旧协议或旧持久化数据。固定 schema 下后续构建覆盖同名表，历史 buildId 不代表历史物理数据快照。
-
-三个产品的独立验证命令见各自README。完成配套提交后仍不自动更新根gitlinks；只有明确采用该版本才固定指针。当前隔离验证不代表生产发布。

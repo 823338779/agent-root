@@ -6,10 +6,9 @@ COPY data-agent-v2/contracts /workspace/contracts
 RUN mvn -f /workspace/backend/pom.xml -pl agent-server -am -DskipTests package
 
 FROM eclipse-temurin:21-jre
-RUN apt-get update && apt-get install -y --no-install-recommends curl git openssh-client && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
     && useradd --system --create-home --uid 10001 appuser
 WORKDIR /app
-RUN mkdir -p /app/data/git && chown -R appuser:appuser /app/data
 COPY --from=build /workspace/backend/agent-server/target/agent-server-*.jar /app/app.jar
 USER appuser
 EXPOSE 8080

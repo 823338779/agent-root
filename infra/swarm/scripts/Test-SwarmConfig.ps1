@@ -36,9 +36,8 @@ try {
     $agent = ($created | Where-Object { $_.arguments[2] -eq 'data-agent-v2-application' }).body
     $platform = ($created | Where-Object { $_.arguments[2] -eq 'metric-platform-v3-application' }).body
     if ($agent -notmatch 'postgres:5432/data_agent_v2' -or $agent -match 'single-account|formal-authentication|artifact:') { throw 'Agent secret 仍使用旧配置。' }
-    foreach ($configuration in @($agent, $platform)) {
-        if ($configuration -notmatch 'http://engine.example:8000' -or $configuration -notmatch 'service-token: "test: token"') { throw '缺少显式 dbt 服务地址或凭据。' }
-    }
+    if ($agent -match 'http://engine.example:8000|test: token') { throw 'Agent secret 包含无用的 dbt 服务地址或凭据。' }
+    if ($platform -notmatch 'http://engine.example:8000' -or $platform -notmatch 'service-token: "test: token"') { throw '平台缺少显式 dbt 服务地址或凭据。' }
     if ($platform -match 'data-agent-api') { throw '平台不得依赖 Agent 服务地址。' }
     & (Join-Path $PSScriptRoot 'Build-And-Push.ps1') -LocalRegistry 'registry.example:5000' -ImageTag test
     $builds = @($script:commands | Where-Object { $_.arguments[0] -eq 'build' })

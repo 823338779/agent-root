@@ -44,10 +44,6 @@ spring:
   ai:
     ollama:
       base-url: $ollamaValue
-data-agent:
-  dbt:
-    base-url: $dbtUrlValue
-    service-token: $dbtTokenValue
 "@
 
 $metricPlatformConfig = @"

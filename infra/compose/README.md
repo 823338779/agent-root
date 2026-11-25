@@ -1,6 +1,6 @@
 # Docker Compose 部署
 
-根仓库 Compose 是本地部署入口，统一管理 PostgreSQL、Redis 和 Forgejo Git。`full` profile 还可构建运行旧版 Data Agent 与 Metric Platform 的 API 和前端；Agent V2 当前从宿主机启动。
+根仓库 Compose 是本地部署入口，统一管理 PostgreSQL、Redis 和 Forgejo Git。`full` profile 还可构建运行Data Agent V2 与 Metric Platform 的 API 和前端。
 
 Docker Desktop 中统一显示在 `data-agent` 分组，Compose 服务名保留为 `git`，容器名为 `forgejo`。
 
@@ -67,6 +67,6 @@ docker compose @stack ps @services
 
 ## 指标开发分支
 
-默认 Compose 为新分支流程提供基础设施。dbt-service 可按上节在容器运行，也可按产品 README 在宿主机运行。Agent V2 在宿主机启动时，需向其进程注入相应的分支配置。
+默认 Compose 为新分支流程提供基础设施。dbt-service 可按上节在容器运行，也可按产品 README 在宿主机运行。
 
-Forgejo 事件目标使用 `host.docker.internal:<服务端口>/internal/git-branch-events`；启用事件补偿扫描并停用旧平台发布者。预检、接线与验收命令见 [分支验证说明](../verification/README.md)。
+Forgejo 事件目标使用 `host.docker.internal:<服务端口>/internal/git-branch-events`；启用事件补偿扫描并停用旧平台发布者。

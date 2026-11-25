@@ -78,9 +78,6 @@ services:
       SPRING_PROFILES_ACTIVE: swarm
       SPRING_CONFIG_ADDITIONAL_LOCATION: optional:file:/run/secrets/application-secrets.yml
       DATA_AGENT_MODEL_PROVIDER: ollama
-      DATA_AGENT_GIT_ENABLED: ${DATA_AGENT_GIT_ENABLED:-false}
-      DATA_AGENT_GIT_WORKSPACE_ROOT: /app/data/git
-      DATA_AGENT_DBT_ENABLED: ${DATA_AGENT_DBT_ENABLED:-false}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=75.0
     secrets:
       - source: data-agent-v2-application
@@ -93,7 +90,6 @@ services:
       retries: 12
       start_period: 45s
     deploy:
-      # 当前 Git 草稿保存在容器本地；单副本避免会话请求跨副本丢失未推送文件。
       replicas: 1
       placement:
         preferences:

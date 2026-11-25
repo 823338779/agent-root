@@ -3,11 +3,6 @@
 	url = https://github.com/823338779/metric_platform.git
 	branch = develop
 	ignore = all
-[submodule "data-agent-v2"]
-	path = data-agent-v2
-	url = https://github.com/823338779/data-agent-v2.git
-	branch = develop
-	ignore = all
 [submodule "metric_store"]
 	path = metric_store
 	url = https://github.com/823338779/metric_store.git
@@ -19,4 +14,9 @@
 [submodule "Datus-agent"]
 	path = Datus-agent
 	url = https://github.com/Datus-ai/Datus-agent.git
+	ignore = all
+[submodule "data-agent-v3"]
+	path = data-agent-v3
+	url = https://github.com/823338779/data-agent-v3.git
+	branch = develop
 	ignore = all

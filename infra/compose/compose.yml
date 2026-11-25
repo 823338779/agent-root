@@ -191,11 +191,6 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-data_agent_local_dev}
       DATA_AGENT_MODEL_PROVIDER: ollama
       SPRING_AI_OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-      DATA_AGENT_GIT_ENABLED: ${DATA_AGENT_GIT_ENABLED:-false}
-      DATA_AGENT_GIT_WORKSPACE_ROOT: /app/data/git
-      DATA_AGENT_DBT_ENABLED: ${DATA_AGENT_DBT_ENABLED:-false}
-      DATA_AGENT_DBT_BASE_URL: ${DATA_AGENT_DBT_BASE_URL:-http://host.docker.internal:8000}
-      DATA_AGENT_DBT_SERVICE_TOKEN: ${DATA_AGENT_DBT_SERVICE_TOKEN:-}
     extra_hosts:
       - host.docker.internal:host-gateway
     depends_on:
