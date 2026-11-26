@@ -1,6 +1,5 @@
 .codegraph/
 # 共享 Maven 导入入口，其余 IDEA 本地配置不提交。
-/.idea/*
 !/.idea/misc.xml
 .env
 *.mv.db
@@ -9,3 +8,4 @@ tmp/*
 !tmp/.gitkeep
 /.superpowers/
 /.worktrees/
+/.idea/
