@@ -17,7 +17,7 @@ docker compose -f .\infra\compose\compose.yml up -d
 
 ## 完整本地栈
 
-V3 复用同一 PostgreSQL 实例。已有数据卷可单独运行 `docker compose -f infra/compose/compose.yml run --rm data-agent-v3-db-init` 创建 `data_agent_v3` 库，重复运行会保留历史。
+Data Agent 复用同一 PostgreSQL 实例。已有数据卷可单独运行 `docker compose -f infra/compose/compose.yml run --rm data-agent-db-init` 创建 `data_agent_v3` 库，重复运行会保留历史。
 
 可将 `infra/compose/.env.example` 复制为 `infra/compose/.env` 并调整本地值，然后构建和启动服务：
 

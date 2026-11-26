@@ -111,8 +111,8 @@ services:
         createdb -h postgres -U data_agent -O data_agent data_agent_v2
     restart: "no"
 
-  # 为 V3 创建独立业务库，兼容已有 PostgreSQL 数据卷。
-  data-agent-v3-db-init:
+  # 为 Data Agent 创建独立业务库，兼容已有 PostgreSQL 数据卷。
+  data-agent-db-init:
     image: postgres:16.9-alpine
     depends_on:
       postgres:

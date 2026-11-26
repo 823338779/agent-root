@@ -10,7 +10,7 @@
 
     <!-- IDEA 从这里导入两个产品，各产品的 POM 继续声明自己的子模块。 -->
     <modules>
-        <module>data-agent-v3</module>
+        <module>data-agent</module>
         <module>metric-platform</module>
     </modules>
 </project>

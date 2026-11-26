@@ -4,8 +4,8 @@
 
 | 项目 | 职责 |
 | --- | --- |
-| [Data Agent](data-agent/) | 对话式数据分析、Agent 会话与执行、身份认证与租户、数据源连接、调度，以及主要用户界面。 |
-| [Data Agent V2](data-agent-v2/) | 重建后的 Data Agent 产品及其契约；本次工作中的 `data-agent/` 仅供参考。 |
+| [Data Agent](data-agent/) | 单用户 Agent 会话与执行、工具调用、长期记忆和对话界面。 |
+| [Data Agent V2](data-agent-v2/) | 重建后的 Data Agent 产品及其契约。 |
 | [Metric Platform](metric-platform/) | 受治理的数据源、数据集、字段、维度、指标、关系、语义 SQL 编译、指标查询，以及指标管理控制台。 |
 
 三个项目均为 Git 子模块，拥有独立的构建与发布生命周期。根目录 POM 不得成为任一产品的父 POM。
@@ -14,8 +14,8 @@
 
 | 路径 | 用途 |
 | --- | --- |
-| `data-agent/` | Data Agent 产品仓库。 |
-| `data-agent-v2/` | 重建后的 Data Agent 产品仓库及其契约；本次工作中的 `data-agent/` 仅供参考。 |
+| `data-agent/` | Data Agent 产品仓库，后端模块、启动与构建见[产品 README](data-agent/README.md)。 |
+| `data-agent-v2/` | 重建后的 Data Agent 产品仓库及其契约。 |
 | `metric-platform/` | Metric Platform 产品仓库及其对外发布的 OpenAPI 契约。 |
 | `.run/` | 两个后端共用的 IntelliJ IDEA 启动配置。 |
 | `infra/docker/` | 共用镜像定义和反向代理配置。 |
@@ -87,8 +87,8 @@ psql -h localhost -p 5432 -U data_agent -d metric_platform
 
 | 组件 | 默认访问地址 | 账号 | 密码 | 补充说明 |
 | --- | --- | --- | --- | --- |
-| Data Agent 后端 | `http://localhost:8080` | `admin` | `admin` | 使用 `local` Profile；连接本机 PostgreSQL、Metric Platform 和 Ollama。 |
-| Data Agent 前端 | `http://127.0.0.1:5173` | `admin` | `admin` | Vite 将 `/api` 代理到 `http://127.0.0.1:8080`。 |
+| Data Agent 后端 | `http://localhost:8083` | — | — | 单用户模式，使用 PostgreSQL 和兼容 Chat Completions 的模型端点。 |
+| Data Agent 前端 | `http://127.0.0.1:5173` | — | — | Vite 将 `/api` 代理到 `http://127.0.0.1:8083`。 |
 | Metric Platform 后端 | `http://localhost:8090` | `admin` | `admin` | 连接本机 PostgreSQL 和 Redis。 |
 | Metric Platform 前端 | `http://localhost:5173` | `admin` | `admin` | Vite 将 `/api` 代理到 `http://localhost:8090`。 |
 
@@ -144,16 +144,16 @@ Forgejo Web 只监听 `http://127.0.0.1:3000`，SSH 默认只监听 `127.0.0.1:2
 分别快速打包两个后端（以下命令会跳过测试）：
 
 ```powershell
-.\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B -DskipTests package
+mvn -f .\data-agent\pom.xml -B -DskipTests package
 mvn -f .\metric-platform\pom.xml -B -DskipTests package
 ```
 
-根目录刻意不提供 Maven 聚合构建。两个产品拥有独立的依赖图，必须在各自仓库中构建。
+根 POM 用于工作区导入，两个产品也可以分别从各自的 POM 独立构建。
 
 在 IntelliJ IDEA 中打开根目录，并使用 [`.run/`](.run/) 中的启动配置：
 
 - `MetricPlatformApplication`：在端口 `8090` 启动 Metric Platform。
-- `DataAgentApplication`：使用 `local` Profile 在端口 `8080` 启动 Data Agent。
+- `DataAgentApplication`：在端口 `8083` 启动 Data Agent，数据库连接参数见[产品 README](data-agent/README.md)。
 
 在不同终端中启动前端：
 
@@ -176,7 +176,7 @@ Vite 开发服务器会将 `/api` 请求代理到各自对应的后端。
 从工作区根目录执行完整后端验证：
 
 ```powershell
-.\data-agent\backend\mvnw.cmd -f .\data-agent\backend\pom.xml -B verify
+mvn -f .\data-agent\pom.xml -B verify
 .\data-agent-v2\backend\mvnw.cmd -f .\data-agent-v2\backend\pom.xml -B verify
 mvn -f .\metric-platform\pom.xml -B verify
 ```
@@ -184,7 +184,7 @@ mvn -f .\metric-platform\pom.xml -B verify
 执行前端测试和生产构建：
 
 ```powershell
-npm --prefix .\data-agent\frontend test
+node --test .\data-agent\frontend\test\chat-api.test.mjs
 npm --prefix .\data-agent\frontend run build
 npm --prefix .\metric-platform\frontend test
 npm --prefix .\metric-platform\frontend run build
