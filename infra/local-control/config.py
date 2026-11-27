@@ -25,6 +25,13 @@ WINDOWS = 'nt'
 PORT_ARGUMENT = '--port'
 SERVER_PORT_ARGUMENT = '--server.port='
 SERVER_PORT_VM_ARGUMENT = '-Dserver.port='
+# 当前 Data Agent 的服务标识也用于隔离不同产品的本地覆盖与日志。
+DATA_AGENT = 'data-agent'
+DATA_AGENT_WEB = 'data-agent-web'
+DATA_AGENT_NAME = 'Data Agent'
+DATA_AGENT_WEB_NAME = 'Data Agent · 前端'
+DATA_AGENT_APP = 'app'
+DATA_AGENT_RUN_FILE = '.run/DataAgentApplication.run.xml'
 # dbt 经 uv 管理运行环境，仍显式使用项目虚拟环境中的解释器。
 UV_TOOL = 'uv'
 UV_RUN_ARGUMENT = 'run'
@@ -135,8 +142,7 @@ def load_services(root: Path) -> list[ServiceSpec]:
     for key, name, project, module, port, run_file in (
         ('metric', 'Metric Platform', 'metric-platform', 'metric-app', 8090,
          '.run/MetricPlatformApplication.run.xml'),
-        ('agent', 'Agent V2', 'data-agent-v2', 'agent-server', 8080,
-         '.run/AgentV2Application.run.xml'),
+        (DATA_AGENT, DATA_AGENT_NAME, DATA_AGENT, DATA_AGENT_APP, 8083, DATA_AGENT_RUN_FILE),
     ):
         folder = root / project
         ide = read_ide(root / run_file, root)
@@ -181,7 +187,7 @@ def load_services(root: Path) -> list[ServiceSpec]:
                      dbt / 'vendor', run_file, dbt / '.run'),
     ))
     for key, name, project, port in (
-        ('agent-web', 'Agent V2 · 前端', 'data-agent-v2', 5173),
+        (DATA_AGENT_WEB, DATA_AGENT_WEB_NAME, DATA_AGENT, 5173),
         ('metric-web', 'Metric Platform · 前端', 'metric-platform', 5174),
     ):
         folder = root / project / 'frontend'

@@ -13,7 +13,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-from config import ServiceSpec, load_services
+from config import DATA_AGENT, DATA_AGENT_WEB, ServiceSpec, load_services
 from external import ProcessInfo, matches_service, identify, stop_external
 from runtime import ServiceRunner, RUNNING_EXTERNAL, STOPPED, RUNNING, FAILED
 
@@ -27,18 +27,18 @@ class IdentityTest(unittest.TestCase):
 
     def test_java_jar_and_idea_argfile_require_this_project(self):
         root = Path(__file__).resolve().parents[3]
-        spec = next(spec for spec in load_services(root) if spec.key == 'agent')
+        spec = next(spec for spec in load_services(root) if spec.key == DATA_AGENT)
         jar = spec.command[spec.command.index('-jar') + 1]
         self.assertTrue(matches_service(spec, [self.info('java.exe', f'java -jar "{jar}"')]))
-        self.assertFalse(matches_service(spec, [self.info('java.exe', 'java -jar C:/elsewhere/agent-server.jar')]))
+        self.assertFalse(matches_service(spec, [self.info('java.exe', 'java -jar C:/elsewhere/app.jar')]))
         with tempfile.TemporaryDirectory() as directory:
             args = Path(directory) / 'idea_args.txt'
-            args.write_text(f'-classpath "{root / "data-agent-v2/backend/agent-server/target/classes"}"\ncom.datagent.agentv2.AgentV2Application', encoding='utf-8')
+            args.write_text(f'-classpath "{root / "data-agent/backend/app/target/classes"}"\ncom.datagent.DataAgentApplication', encoding='utf-8')
             self.assertTrue(matches_service(spec, [self.info('java.exe', f'java "@{args}"')]))
 
     def test_frontend_normalizes_vite_bin_path_and_rejects_other_workspace(self):
         root = Path(__file__).resolve().parents[3]
-        spec = next(spec for spec in load_services(root) if spec.key == 'agent-web')
+        spec = next(spec for spec in load_services(root) if spec.key == DATA_AGENT_WEB)
         command = f'node "{spec.cwd}/node_modules/.bin/../vite/bin/vite.js"'
         self.assertTrue(matches_service(spec, [self.info('node.exe', command)]))
         self.assertFalse(matches_service(spec, [self.info('node.exe', command.replace('frontend', 'frontend-copy'))]))

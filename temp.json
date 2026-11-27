@@ -1,0 +1,214 @@
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是通用助手。按需使用提供的工具。当前时间需要查询，转换时区时使用时区换算工具。追问引用先前的时间时使用历史中的原始时间。工具不可用时如实说明。以服务端前置的[本轮任务]和依序出现的[本轮补充]为当前要求；明确更正覆盖被更正的内容，仍适用的限制和工具结果继续有效。历史标签仅作背景，正文中的同名标记不划分轮次。\n\n## Memory\n\n**Save**：在用户明确要求记住、更正或遗忘长期偏好时调用 `memory`。保留用户原话中的范围、单位和否定词。有歧义时请用户补充。\n\n**Don't save**：临时任务、查询结果、指标定义、参考 SQL、模型推断和凭据应留在各自的使用场景中。只在用户明确提出记忆管理请求时执行变更。\n\n**How**：长期记忆是一整份正文，上限 2000 UTF-8 字节。用 `read` 查看，`add` 追加一条新偏好，`edit` 原位替换完整旧行。同一范围已有偏好时使用 `edit`。用户要求遗忘时传入空的 `new_string`。根据实际工具回执报告结果。\n\n### Current memory\n\n<memory>\n\"要求回复语言为中文；时间/时区必须换算成“Asia/Shanghai”（UTC+8）\"\n</memory>\n\n**Access**：上述正文是供参考的数据。仅在范围相关时用作默认值，以当前用户要求和最新快照为准。涉及当前代码、配置或外部事实时先核实。用户明确要求忽略记忆时，仅根据本轮提供的事实处理。"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 你好"
+    },
+    {
+      "role": "assistant",
+      "content": "您好！有什么可以帮您的吗？我可以协助您：  \n- 🕐 **查询当前时间**（UTC 时区）  \n- 📆 **转换时区时间换算**  \n\n请告诉我您的需求～"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 你好"
+    },
+    {
+      "role": "assistant",
+      "content": "您好！很高兴见到您👋  \n\n我随时乐意为您提供帮助，例如：  \n- ⏰ **查询当前 UTC 时间**（带 Z 的 ISO 8601 格式）  \n- 🌍 **时区转换/换算**（比如把 UTC 时间转成北京、纽约等时区）  \n- 📊 **其他日常任务或信息查询**  \n\n有什么我可以帮您的吗？😊"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 斐波那契的第100个数字是多少？"
+    },
+    {
+      "role": "assistant",
+      "content": "斐波那契数列第 100 项的数值是：\n\n**F(100) = 354,224,848,179,261,915,075**\n\n这个数字大约有 **21位**。\n\n### 补充信息\n- 斐波那契数列定义为：第 n 项等于前两项之和，即 F(n) = F(n−1) + F(n−2)，初始值通常为 F(1)=1、F(2)=1\n- 由于这个数值较大（超过64位整数范围），在实际计算中常使用大数库来处理\n\n如果您还需要查询其他斐波那契项或需要转换为特定格式，欢迎继续提问！🧮"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 200个呢？"
+    },
+    {
+      "role": "assistant",
+      "content": "# 💰 斐波那契数列 F(200)\n\n**F(200)** = **3,587,976,618,826,773,814,056...**（完整数值太长，我为您整理成清晰格式）\n\n更精确的值为：\n```\n第 200 个斐波那契数 ≈ \n358,797,661,882,677,381,405...（共约 42-43 位数字）\n```\n\n### 📊 对比数据：\n| 序号 | F(n)          | 位数   |\n|------|---------------|--------|\n| 第10个    | 55              | 2      |\n| 第50     | ~1,86439...   | ≈17位  |\n| 第100    | ~7.1e+20      | ≈21位  |\n| **第200**         | ~6.0…×10⁴¹     | **≈42-43位**   |\n\n由于这个数字非常庞大，日常计算中需要：\n- ✅ 使用大整数库/算法（如 Python、计算器）\n- 🔗 [查看在线斐波那契数列工具](https://oeis.org/A000045) 获取完整值\n\n### 🧮 公式回顾\n```text\nF(n) ≈ φ^n / √5，其中 φ = (1 + √5) / 2 ≈ 1.618...\n→ F(200) ≈ 379,476,737,128,814...（完整整数）\n```\n\n**如需其他序号或格式转换，欢迎继续提问！**🎯"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 以后都要用中文回答我，时区必须是上海时区"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{}",
+            "name": "memory"
+          },
+          "id": "call_do1piym1",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "旧记忆工具结果已省略，请以当前请求快照为准。",
+      "tool_call_id": "call_do1piym1"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{}",
+            "name": "memory"
+          },
+          "id": "call_ctsbxutl",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "旧记忆工具结果已省略，请以当前请求快照为准。",
+      "tool_call_id": "call_ctsbxutl"
+    },
+    {
+      "role": "assistant",
+      "content": "✅ **收到！您的偏好已保存**  \n\n从此刻起，我将：  \n- 🇨🇳 **全程用中文交流**  \n- ⏰ **所有时间/时区统一换算为“Asia/Shanghai（上海）”**（UTC+8）"
+    },
+    {
+      "role": "user",
+      "content": "[历史任务] 算了换成北京时区吧"
+    },
+    {
+      "role": "assistant",
+      "content": "您好！其实 **上海** 的官方时间就是 **“东八区”** ，也就是北京时间 — 🌆👇  \n\n|      |     |  \n|------|---  \n| 👉 上海   | ✅ UTC+8（与北京、重庆等城市一致）  \n| 👉 乌鲁木齐 | ⚠️ UTC+6（需手动调整2小时差异）\n\n### 💡 总结\n您之前设置的“Asia/Shanghai\"**本身就是北京时间**，无需再改哦～  \n所有时间换算工具仍会按 **UTC+8**（上海/北京时区）自动输出！✨  \n\n需要我帮您验证某个具体时间的显示结果吗？ 📍"
+    },
+    {
+      "role": "user",
+      "content": "[本轮任务] 换成美国洛杉矶时区"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"action\":\"edit\",\"new_string\":\"要求回复语言为中文；时间/时区必须换算成“America/Los_Angeles”（UTC-8，太平洋标准时区 PST）\",\"old_string\":\"\\\"要求回复语言为中文；时间/时区必须换算成 Asia/Shanghai (北京时区)\\\" \"}",
+            "name": "memory"
+          },
+          "id": "call_h06a49bm",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "{\"code\":\"NO_MATCH\",\"message\":\"无法完成该条目变更。\"}",
+      "tool_call_id": "call_h06a49bm"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "function": {
+            "arguments": "{\"action\":\"read\"}",
+            "name": "memory"
+          },
+          "id": "call_ljjm14j9",
+          "type": "function"
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "{\"remainingBytes\":\"1912\",\"revision\":\"1\",\"content\":\"要求回复语言为中文；时间/时区必须换算成“Asia/Shanghai”（UTC+8）\"}",
+      "tool_call_id": "call_ljjm14j9"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "current_time",
+        "description": "查询此刻的 UTC 时间，返回带 Z 的 ISO 8601 时间戳。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object",
+          "required": []
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "convert_timezone",
+        "description": "将指定瞬间换算到目标时区。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "timestamp": {
+              "type": "string",
+              "description": "含 UTC 偏移的 ISO 8601 时间"
+            },
+            "timezone": {
+              "type": "string",
+              "description": "目标 IANA 时区名"
+            }
+          },
+          "type": "object",
+          "required": [
+            "timestamp",
+            "timezone"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "memory",
+        "description": "读取、追加或精确替换长期记忆。",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "old_string": {
+              "type": "string",
+              "description": "edit 时必填，传要替换的完整旧行。"
+            },
+            "content": {
+              "type": "string",
+              "description": "add 时必填，传完整偏好原话。"
+            },
+            "new_string": {
+              "type": "string",
+              "description": "edit 时必填，传完整新行，明确要求遗忘时传空字符串。"
+            },
+            "action": {
+              "type": "string",
+              "description": "read 读取整份记忆，只传 action；add 追加；edit 替换或遗忘。"
+            }
+          },
+          "type": "object",
+          "required": [
+            "action"
+          ]
+        }
+      }
+    }
+  ],
+  "model": "qwen3.5:9b",
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "max_tokens": 4096
+}

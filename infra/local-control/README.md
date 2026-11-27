@@ -36,9 +36,11 @@ python .\infra\local-control\app.py
 | --- | --- | --- |
 | dbt-service | 8000 | `uv run <项目路径>/.venv/Scripts/python.exe -m dbt_metricflow_service.main`，通过 PATH 定位 uv，使用根 `.run` 中的工作目录和环境变量 |
 | Metric Platform | 8090 | 独立 Maven 构建生产 jar，然后使用 Java 启动 |
-| Agent V2 | 8080 | 独立 Maven 构建生产 jar，然后使用 Java 启动 |
-| Agent V2 前端 | 5173 | 原项目 `npm run dev`，固定端口及 strictPort |
+| Data Agent | 8083 | 构建 `data-agent/backend/app` 及其 Maven 依赖，按 `.run/DataAgentApplication.run.xml` 的参数启动 jar，通过 `/actuator/health` 检查健康状态 |
+| Data Agent 前端 | 5173 | 在 `data-agent/frontend` 运行 `npm run dev`，Vite 将 `/api` 和 `/actuator/health` 转发到后端的 8083 端口 |
 | Metric Platform 前端 | 5174 | 原项目 `npm run dev`，固定端口及 strictPort |
+
+首次启动 Data Agent 前，请按[产品本地运行说明](../../data-agent/README.md#本地运行)初始化 PostgreSQL 数据库 `data_agent_v3`，并在前端目录执行 `npm ci`。数据库账号和密码由[后端配置文件](../../data-agent/backend/app/src/main/resources/application.properties)提供。
 
 - 左侧每个服务项内提供启动、停止、重启，前端服务额外提供“打开页面”。点击操作会同步选中该服务，右侧立即显示对应的构建和运行日志。
 - 当前服务以深蓝底、白字和“当前”标记突出；阅读日志后仍保留选中标记。左侧支持滚动和上下方向键选择，缩小窗口后保持当前服务可见。
@@ -65,13 +67,13 @@ IDE 环境变量和启动参数在每次启动时重新读取，Windows 路径�
 
 ## 本地覆盖与日志
 
-可选配置文件为 `tmp/local-control/settings.json`，以服务标识为键：`dbt`、`metric`、`agent`、`agent-web`、`metric-web`。默认不生成此文件。
+可选配置文件为 `tmp/local-control/settings.json`，以服务标识为键：`dbt`、`metric`、`data-agent`、`data-agent-web`、`metric-web`。旧键 `agent` 和 `agent-web` 不再生效。
 
 ```json
 {
-  "agent-web": { "port": 5273 },
+  "data-agent-web": { "port": 5273 },
   "metric-web": { "port": 5274 },
-  "agent": { "startup_timeout": 180 }
+  "data-agent": { "startup_timeout": 180 }
 }
 ```
 
@@ -90,5 +92,3 @@ Set-Location .\infra\local-control
 python -m unittest discover -s tests -v
 python -m py_compile app.py config.py watcher.py runtime.py winjob.py external.py log_panel.py service_list.py
 ```
-
-首次集成验证中，Metric Platform 常规打包通过，Agent V2 的生产代码打包通过。Agent V2 使用 `-DskipTests package` 时，当时工作区中的 `ConversationOrganizationPersistenceTest` 的 `setVersion`、`setTitle` 调用无法编译；本任务不修改产品测试。客户端的生产代码启动构建与产品测试结果分别报告。

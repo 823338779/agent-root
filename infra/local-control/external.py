@@ -13,7 +13,7 @@ import socket
 import subprocess
 import threading
 
-from config import ServiceSpec, split_arguments
+from config import DATA_AGENT, ServiceSpec, split_arguments
 
 # 只读取 TCP 监听表；进程信息按 PID 与创建时间缓存，避免反复启动 PowerShell。
 WINDOWS = 'nt'
@@ -24,8 +24,8 @@ WAIT_TIMEOUT = 258
 JAVA_NAMES = frozenset({'java.exe', 'javaw.exe'})
 PYTHON_NAMES = frozenset({'python.exe', 'pythonw.exe'})
 JAVA_MAIN = {'metric': 'com.metricplatform.MetricPlatformApplication',
-             'agent': 'com.datagent.agentv2.AgentV2Application'}
-PROJECTS = {'metric': 'metric-platform', 'agent': 'data-agent-v2'}
+             DATA_AGENT: 'com.datagent.DataAgentApplication'}
+PROJECTS = {'metric': 'metric-platform', DATA_AGENT: DATA_AGENT}
 NODE_NAME, VITE_ENTRY = 'node.exe', 'node_modules/vite/bin/vite.js'
 DBT_MODULE = 'dbt_metricflow_service.main'
 DBT_ENTRY = 'src/dbt_metricflow_service/main.py'

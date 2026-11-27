@@ -87,7 +87,7 @@ psql -h localhost -p 5432 -U data_agent -d metric_platform
 
 | 组件 | 默认访问地址 | 账号 | 密码 | 补充说明 |
 | --- | --- | --- | --- | --- |
-| Data Agent 后端 | `http://localhost:8083` | — | — | 单用户模式，使用 PostgreSQL 和兼容 Chat Completions 的模型端点。 |
+| Data Agent 后端 | `http://localhost:8083` | — | — | 单用户模式，使用 PostgreSQL 和兼容 Responses API 的模型端点。 |
 | Data Agent 前端 | `http://127.0.0.1:5173` | — | — | Vite 将 `/api` 代理到 `http://127.0.0.1:8083`。 |
 | Metric Platform 后端 | `http://localhost:8090` | `admin` | `admin` | 连接本机 PostgreSQL 和 Redis。 |
 | Metric Platform 前端 | `http://localhost:5173` | `admin` | `admin` | Vite 将 `/api` 代理到 `http://localhost:8090`。 |
@@ -96,7 +96,7 @@ psql -h localhost -p 5432 -U data_agent -d metric_platform
 
 ## 快速开始
 
-需要在桌面统一管理 Metric Platform、dbt-service、Agent V2 和两个前端时，运行：
+需要在桌面统一管理 Data Agent 和 Metric Platform 的前后端以及 dbt-service 时，运行：
 
 ```powershell
 .\infra\local-control\Start-LocalControl.ps1
@@ -153,7 +153,7 @@ mvn -f .\metric-platform\pom.xml -B -DskipTests package
 在 IntelliJ IDEA 中打开根目录，并使用 [`.run/`](.run/) 中的启动配置：
 
 - `MetricPlatformApplication`：在端口 `8090` 启动 Metric Platform。
-- `DataAgentApplication`：在端口 `8083` 启动 Data Agent，数据库连接参数见[产品 README](data-agent/README.md)。
+- `DataAgentApplication`：在端口 `8083` 启动 Data Agent。端口、数据库连接和模型参数统一在[后端配置文件](data-agent/backend/app/src/main/resources/application.properties)中设置。
 
 在不同终端中启动前端：
 

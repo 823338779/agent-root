@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from config import load_services, read_ide
+from config import DATA_AGENT, DATA_AGENT_WEB, load_services, read_ide
 from watcher import SourceWatcher, needs_restart
 
 # dbt 启动契约使用独立预期值，覆盖带空格的 uv 安装路径。
@@ -132,19 +132,19 @@ class ConfigurationTest(unittest.TestCase):
     def test_port_override_updates_launch_command_and_probe_together(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for project in ('metric-platform', 'data-agent-v2'):
+            for project in ('metric-platform', DATA_AGENT):
                 path = root / project / 'pom.xml'
                 path.parent.mkdir()
                 path.write_text('<project xmlns="http://maven.apache.org/POM/4.0.0"><version>1</version></project>')
             settings = root / 'tmp/local-control/settings.json'
             settings.parent.mkdir(parents=True)
-            settings.write_text(json.dumps({'agent-web': {'port': 5200}, 'agent': {'port': 8200},
+            settings.write_text(json.dumps({DATA_AGENT_WEB: {'port': 5200}, DATA_AGENT: {'port': 8200},
                                             'dbt': {'port': 8300}}))
             services = {spec.key: spec for spec in load_services(root)}
-            self.assertIn('5200', services['agent-web'].command)
-            self.assertIn('--server.port=8200', services['agent'].command)
+            self.assertIn('5200', services[DATA_AGENT_WEB].command)
+            self.assertIn('--server.port=8200', services[DATA_AGENT].command)
             self.assertEqual(services['dbt'].env['SERVICE_PORT'], '8300')
-            self.assertIn(':5200/', services['agent-web'].health_url)
+            self.assertIn(':5200/', services[DATA_AGENT_WEB].health_url)
 
 
 if __name__ == '__main__':
